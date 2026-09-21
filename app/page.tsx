@@ -1,6 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import LiquidField from './components/LiquidField';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -126,6 +126,7 @@ type Lead = {
     generatedAt: string;
     approved: boolean;
   };
+  latestAudit?: AuditResult;
 };
 
 type Campaign = {
@@ -148,8 +149,6 @@ type Campaign = {
   }>;
 };
 
-
-const LiquidField = dynamic(() => import('./components/LiquidField'), { ssr: false });
 
 type AuditResult = {
   url: string;
@@ -614,7 +613,11 @@ export default function Home() {
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          setLeads(Array.isArray(parsed) ? parsed : (demoMode ? sampleLeads : []));
+          const storedLeads = Array.isArray(parsed) ? parsed : [];
+          const cleanLeads = demoMode
+            ? storedLeads
+            : storedLeads.filter((item: any) => item?.source !== 'Sample data' && !String(item?.id || '').startsWith('sample-'));
+          setLeads(cleanLeads as Lead[]);
         } else {
           setLeads(demoMode ? sampleLeads : []);
         }
@@ -715,6 +718,7 @@ export default function Home() {
         approved: patch.outreach.approved,
       };
     }
+    if (patch.latestAudit) body.audit = patch.latestAudit;
 
     setSyncing(true);
     void fetch('/api/leads/' + encodeURIComponent(id), {
@@ -1158,6 +1162,7 @@ export default function Home() {
         );
         updateLead(targetLead.id, {
           findings: data.findings,
+          latestAudit: data,
           evidence: strongest?.problem || 'Audit completed. Review the findings before outreach.',
           status: targetLead.status === 'New' ? 'Needs review' : targetLead.status,
         });
@@ -1415,6 +1420,7 @@ export default function Home() {
           </div>
           <div className="top-actions">
             <div className="location-chip"><MapPin size={14} /><input value={city} onChange={(event) => setCity(event.target.value)} /></div>
+            <div className={`workspace-mode ${storageMode === 'database' ? 'workspace-live' : ''}`}><span className="mode-dot" /> {storageMode === 'database' ? 'LIVE' : 'LOCAL'} WORKSPACE</div>
             <button className="ghost-btn" onClick={() => fileRef.current?.click()} disabled={importing}><Upload size={15} /> {importing ? 'Importing…' : 'Import'}</button>
             <button className="ghost-btn" onClick={exportCsv}><Download size={15} /> Export</button>
             <button className="primary-btn" onClick={() => setDiscoveryOpen(true)}><Zap size={15} /> Find leads</button>
@@ -1458,7 +1464,7 @@ export default function Home() {
             </section>
 
             <section className="stat-grid">
-              <Metric label="Leads in workspace" value={String(stats.total)} note="Persistent in this browser" icon={Target} />
+              <Metric label="Leads in workspace" value={String(stats.total)} note={storageMode === 'database' ? 'PostgreSQL workspace' : 'Browser workspace'} icon={Target} />
               <Metric label="High priority" value={String(stats.high)} note="80+ opportunity score" icon={Zap} accent />
               <Metric label="Needs verification" value={String(stats.verify)} note="Manual review queue" icon={AlertTriangle} />
               <Metric label="Active conversations" value={String(stats.contact)} note="Contacted → interested" icon={MessageSquare} />
