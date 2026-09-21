@@ -1398,10 +1398,10 @@ export default function Home() {
 
         <div className="sidebar-bottom">
           <div className="mini-stat">
-            <span>Today&apos;s target</span>
-            <strong>10 conversations</strong>
-            <div className="mini-track"><i style={{ width: `${Math.min(100, (stats.contact / 10) * 100)}%` }} /></div>
-            <small>{Math.min(10, stats.contact)} / 10 active leads</small>
+            <span>Workspace pulse</span>
+            <strong>{stats.high} high-opportunity leads</strong>
+            <div className="mini-track"><i style={{ width: String(Math.min(100, leads.length ? (stats.high / leads.length) * 100 : 0)) + '%' }} /></div>
+            <small>{stats.verify} need verification · {stats.contact} active</small>
           </div>
           <div className="privacy-note"><ShieldCheck size={14} /> Evidence-first. Human-approved.</div>
         </div>
@@ -1465,10 +1465,15 @@ export default function Home() {
 
             <section className="stat-grid">
               <Metric label="Leads in workspace" value={String(stats.total)} note={storageMode === 'database' ? 'PostgreSQL workspace' : 'Browser workspace'} icon={Target} />
-              <Metric label="High priority" value={String(stats.high)} note="80+ opportunity score" icon={Zap} accent />
-              <Metric label="Needs verification" value={String(stats.verify)} note="Manual review queue" icon={AlertTriangle} />
-              <Metric label="Active conversations" value={String(stats.contact)} note="Contacted → interested" icon={MessageSquare} />
-              <Metric label="Pipeline" value={String(stats.pipeline)} note="Interested or proposal" icon={CircleDollarSign} />
+              <Metric label="High opportunity" value={String(stats.high)} note="80+ evidence-backed score" icon={Zap} accent />
+              <Metric label="Needs verification" value={String(stats.verify)} note="Human review before contact" icon={AlertTriangle} />
+              <div className="pulse-card">
+                <div className="pulse-head"><span>ACQUISITION PULSE</span><span>{stats.contact} active</span></div>
+                <strong>{stats.pipeline} in commercial pipeline</strong>
+                <p>Contacted → interested → proposal. Keep the queue small enough to work manually.</p>
+                <div className="pulse-track"><i style={{ width: String(Math.min(100, leads.length ? ((stats.contact + stats.pipeline) / Math.max(1, leads.length)) * 100 : 0)) + '%' }} /></div>
+                <div className="pulse-foot"><span>{stats.contact} active conversations</span><span>{stats.won} won</span></div>
+              </div>
             </section>
 
             <section className="split-grid">
