@@ -1110,6 +1110,33 @@ export default function Home() {
     }
   }
 
+  async function generateCampaignDrafts(campaign: Campaign) {
+    if (!campaign.recipients?.length) return;
+    setCampaignLoading(true);
+    try {
+      for (const recipient of campaign.recipients.filter((item) => !item.draft)) {
+        const lead = leads.find((item) => item.id === recipient.business.id);
+        if (!lead || lead.doNotContact) continue;
+
+        const response = await fetch('/api/outreach', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lead, channel: campaign.channel }),
+        });
+        const data = await response.json();
+        if (!response.ok) continue;
+
+        await updateCampaignRecipient(campaign.id, recipient.id, {
+          draft: data.message || '',
+          recipientStatus: 'Drafted',
+        });
+      }
+      await loadCampaigns();
+    } finally {
+      setCampaignLoading(false);
+    }
+  }
+
   async function updateCampaignRecipient(campaignId: string, recipientId: string, patch: { recipientStatus?: string; draft?: string; approved?: boolean }) {
     if (storageMode !== 'database') return;
     try {
@@ -1388,6 +1415,178 @@ export default function Home() {
                 </table>
               </div>
               {filtered.length === 0 && <EmptyState title="No leads match that filter" body="Change the search or import a fresh batch." />}
+            </section>
+          </div>
+        )}
+
+
+        {activeView === 'shortlist' && (
+          <div className="page-stack">
+            <section className="page-intro">
+              <div>
+                <span className="section-kicker">SHORTLIST</span>
+                <h1>The businesses worth your time.</h1>
+                <p>Shortlist based on opportunity, evidence and growth signals. Then turn the shortlist into a campaign.</p>
+              </div>
+              <div className="intro-actions">
+                <button className="primary-btn" onClick={() => setActiveView('campaigns')}>Open campaigns <ChevronRight size={14} /></button>
+              </div>
+            </section>
+
+            <section className="surface">
+              <div className="section-head">
+                <div>
+                  <span className="section-kicker">SELECTED</span>
+                  <h2>{leads.filter((lead) => lead.shortlisted).length} shortlisted businesses</h2>
+                  <p>Pick only businesses you would genuinely want to pitch.</p>
+                </div>
+              </div>
+
+              <div className="queue-list">
+                {leads.filter((lead) => lead.shortlisted).sort((a, b) => b.score - a.score).map((lead) => (
+                  <div className="queue-row" key={lead.id}>
+                    <div className="queue-number">•</div>
+                    <div className="queue-main">
+                      <div className="queue-title"><strong>{lead.name}</strong><span>{lead.city}</span></div>
+                      <div className="queue-detail">{lead.opportunity}</div>
+                      <div className="queue-tags">
+                        <span className="priority-pill priority-high">{lead.score}/100</span>
+                        <span>{lead.recommendedService}</span>
+                      </div>
+                    </div>
+                    <ScoreBadge score={lead.score} compact />
+                    <button className="outline-btn small" onClick={() => toggleShortlist(lead)}>Remove</button>
+                  </div>
+                ))}
+                {leads.filter((lead) => lead.shortlisted).length === 0 && (
+                  <EmptyState title="Nothing shortlisted yet" body="Open Lead Intelligence, inspect the evidence, then shortlist the businesses you actually want to pursue." />
+                )}
+              </div>
+
+              <div className="campaign-builder">
+                <div>
+                  <span className="section-kicker">CAMPAIGN BUILDER</span>
+                  <h3>Turn this shortlist into outreach</h3>
+                  <p>{leads.filter((lead) => lead.shortlisted && !lead.doNotContact).length} eligible prospects. Human approval remains required.</p>
+                </div>
+                <div className="discovery-controls">
+                  <label>Campaign name<input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} placeholder={niche.label + ' outreach'} /></label>
+                  <label>Channel
+                    <select value={campaignChannel} onChange={(event) => setCampaignChannel(event.target.value as typeof campaignChannel)}>
+                      <option value="email">Email</option>
+                      <option value="instagram">Instagram DM</option>
+                      <option value="whatsapp">WhatsApp</option>
+                      <option value="linkedin">LinkedIn-style draft</option>
+                      <option value="phone">Phone script</option>
+                    </select>
+                  </label>
+                  <button className="primary-btn" onClick={createCampaignFromShortlist} disabled={campaignLoading}>
+                    {campaignLoading ? 'Creating…' : 'Create campaign'}
+                  </button>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeView === 'campaigns' && (
+          <div className="page-stack">
+            <section className="page-intro">
+              <div>
+                <span className="section-kicker">CAMPAIGNS</span>
+                <h1>Personalize the entire shortlist.</h1>
+                <p>Generate drafts from verified evidence, review them, approve them, then move recipients through the pipeline.</p>
+              </div>
+            </section>
+
+            <div className="split-grid">
+              <div className="surface">
+                <div className="section-head"><div><span className="section-kicker">CAMPAIGN LIST</span><h2>{campaigns.length} campaigns</h2></div></div>
+                <div className="mini-lead-list">
+                  {campaigns.map((campaign) => (
+                    <div className="mini-lead" key={campaign.id}>
+                      <div className="mini-avatar">{campaign.name.slice(0, 1)}</div>
+                      <div>
+                        <strong>{campaign.name}</strong>
+                        <span>{campaign.total} prospects · {campaign.channel} · {campaign.status}</span>
+                      </div>
+                      <div className="queue-tags"><span>{campaign.replied} replies</span><span>{campaign.won} won</span></div>
+                      <button className="outline-btn small" onClick={() => generateCampaignDrafts(campaign)} disabled={campaignLoading}>Generate drafts</button>
+                    </div>
+                  ))}
+                  {!campaigns.length && <EmptyState title="No campaigns yet" body="Shortlist some leads, then create a campaign." />}
+                </div>
+              </div>
+
+              <div className="surface">
+                <div className="section-head"><div><span className="section-kicker">SAFETY</span><h2>Draft → review → approve</h2><p>No automatic sending. Every recipient has an auditable draft and approval state.</p></div></div>
+                <div className="pitch-framework">
+                  <div><span>01</span><strong>Evidence</strong><p>Use only verified business facts.</p></div>
+                  <div><span>02</span><strong>Draft</strong><p>Generate one personalized message per prospect.</p></div>
+                  <div><span>03</span><strong>Review</strong><p>Edit anything before approval.</p></div>
+                  <div><span>04</span><strong>Contact</strong><p>Copy/export or connect a permitted channel later.</p></div>
+                </div>
+              </div>
+            </div>
+
+            {campaigns.map((campaign) => (
+              <section className="surface" key={campaign.id + '-recipients'}>
+                <div className="section-head">
+                  <div><span className="section-kicker">RECIPIENTS</span><h2>{campaign.name}</h2><p>{campaign.approved} approved · {campaign.contacted} contacted · {campaign.replied} replied</p></div>
+                </div>
+                <div className="lead-table-wrap">
+                  <table className="lead-table">
+                    <thead><tr><th>Business</th><th>Score</th><th>Draft</th><th>Status</th><th /></tr></thead>
+                    <tbody>
+                      {(campaign.recipients ?? []).map((recipient) => (
+                        <tr key={recipient.id}>
+                          <td><strong>{recipient.business.name}</strong><span>{recipient.business.city}</span></td>
+                          <td><ScoreBadge score={recipient.business.score} compact /></td>
+                          <td>
+                            <div className="table-signal">
+                              <strong>{recipient.draft ? recipient.draft.slice(0, 90) + (recipient.draft.length > 90 ? '…' : '') : 'No draft yet'}</strong>
+                              {recipient.draft && <span>Evidence-backed draft</span>}
+                            </div>
+                          </td>
+                          <td><span className="status-pill tone-neutral"><i />{recipient.status}</span></td>
+                          <td>
+                            {recipient.draft && recipient.status !== 'Approved' && (
+                              <button className="primary-btn small" onClick={() => updateCampaignRecipient(campaign.id, recipient.id, { approved: true, recipientStatus: 'Approved' })}>Approve</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
+
+        {activeView === 'pipeline' && (
+          <div className="page-stack">
+            <section className="page-intro">
+              <div>
+                <span className="section-kicker">PIPELINE</span>
+                <h1>What happened after the intelligence?</h1>
+                <p>Outcome data is what eventually makes the scoring model smarter.</p>
+              </div>
+            </section>
+            <section className="surface">
+              <div className="kanban-grid">
+                {['New','Researched','Needs review','Verified','Ready to contact','Contacted','Replied','Interested','Meeting booked','Proposal sent','Won','Lost'].map((status) => (
+                  <div className="kanban-column" key={status}>
+                    <div className="kanban-head"><strong>{status}</strong><span>{leads.filter((lead) => lead.status === status).length}</span></div>
+                    {leads.filter((lead) => lead.status === status).slice(0, 6).map((lead) => (
+                      <button className="kanban-card" key={lead.id} onClick={() => setSelected(lead)}>
+                        <strong>{lead.name}</strong>
+                        <span>{lead.city} · {lead.score}/100</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </section>
           </div>
         )}
