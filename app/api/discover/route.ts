@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { osmProvider } from '../../../lib/providers/osm';
 
 type PlacesResponse = {
   places?: Array<{
@@ -25,16 +26,24 @@ export async function POST(request: Request) {
     const query = cleanText(body?.query);
     const city = cleanText(body?.city);
     const pageSize = Math.min(Math.max(Number(body?.pageSize) || 10, 1), 20);
+    const provider = cleanText(body?.provider || 'auto').toLowerCase();
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          configured: false,
-          error: 'GOOGLE_MAPS_API_KEY is not configured. Use CSV import or add a restricted Google Places API key.',
-        },
-        { status: 503 },
-      );
+    if (!['auto', 'google', 'osm'].includes(provider)) {
+      return NextResponse.json({ error: 'Provider must be auto, google, or osm.' }, { status: 400 });
+    }
+
+    if (!apiKey && provider === 'google') {
+      return NextResponse.json({ configured: false, provider: 'google', error: 'GOOGLE_MAPS_API_KEY is not configured.' }, { status: 503 });
+    }
+
+    if (!apiKey && (provider === 'auto' || provider === 'osm')) {
+      try {
+        const leads = await osmProvider.search({ query, city, pageSize });
+        return NextResponse.json({ configured: true, provider: 'openstreetmap', query: city ? query + ' in ' + city + ', India' : query, leads });
+      } catch (error) {
+        return NextResponse.json({ configured: false, provider: 'openstreetmap', error: error instanceof Error ? error.message : 'OpenStreetMap discovery failed.' }, { status: 502 });
+      }
     }
 
     if (!query) {
