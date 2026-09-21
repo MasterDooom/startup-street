@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
@@ -146,6 +147,9 @@ type Campaign = {
     business: { id: string; name: string; city: string; score: number; status: string };
   }>;
 };
+
+
+const LiquidField = dynamic(() => import('./components/LiquidField'), { ssr: false });
 
 type AuditResult = {
   url: string;
@@ -1428,6 +1432,7 @@ export default function Home() {
         {activeView === 'dashboard' && (
           <div className="page-stack">
             <section className="hero-card">
+              <LiquidField />
               <div className="hero-copy">
                 <div className="hero-label"><Sparkles size={14} /> THE ACQUISITION LOOP</div>
                 <h1>Find the business.<br /><em>Prove the gap.</em><br />Sell the fix.</h1>
