@@ -89,7 +89,7 @@ async function fetchSafely(startUrl: URL, maxRedirects = 4) {
 
 function extractLinks(html: string, baseUrl: URL) {
   const links: string[] = [];
-  const re = /<a\\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
+  const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(html)) && links.length < 40) {
     const raw = match[1].trim();
@@ -192,21 +192,21 @@ export async function POST(request: Request) {
     const lower = html.toLowerCase();
     const findings: Finding[] = [];
 
-    const title = (html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)?.[1] ?? '').replace(/<[^>]*>/g, '').trim();
+    const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '').replace(/<[^>]*>/g, '').trim();
     const viewport = /<meta[^>]+name=["']viewport["'][^>]*>/i.test(html);
-    const h1Count = (html.match(/<h1\\b/gi) ?? []).length;
-    const textLength = html.replace(/<script[\\s\\S]*?<\\/script>/gi, '').replace(/<style[\\s\\S]*?<\\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim().length;
+    const h1Count = (html.match(/<h1\b/gi) ?? []).length;
+    const textLength = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().length;
     const hasMenu = /(menu|our menu|food|price list|services|portfolio)/i.test(html);
-    const hasPdfMenu = /href=["'][^"']*(menu|price)[^"']*\\.pdf/i.test(html);
+    const hasPdfMenu = /href=["'][^"']*(menu|price)[^"']*\.pdf/i.test(html);
     const hasImageMenu = /(menu|price)[^<]{0,100}<[^>]*img|<img[^>]+(menu|price)/i.test(html);
-    const hasPhone = /(?:tel:|\\+?91[ -]?\\d{10}|call us|phone us)/i.test(html);
-    const hasWhatsApp = /(wa\\.me|whatsapp)/i.test(lower);
+    const hasPhone = /(?:tel:|\+?91[ -]?\d{10}|call us|phone us)/i.test(html);
+    const hasWhatsApp = /(wa\.me|whatsapp)/i.test(lower);
     const hasBooking = /(book (a )?table|book now|appointment|schedule|reserve|reservation)/i.test(lower);
     const hasOrder = /(order online|order now|delivery|takeaway|request a quote|get a quote|enquire|enquiry)/i.test(lower);
     const hasHours = /(opening hours|business hours|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)/i.test(lower);
     const hasMap = /(google\.com\/maps|maps\/search|maps\.google)/i.test(lower);
     const hasCatering = /(catering|events|weddings|corporate|party orders)/i.test(lower);
-    const socialLinks = (html.match(/https?:\\/\\/(?:www\\.)?(?:instagram\\.com|facebook\\.com|linkedin\\.com|youtube\\.com|tiktok\\.com)/gi) ?? []).length;
+    const socialLinks = (html.match(/https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|linkedin\.com|youtube\.com|tiktok\.com)/gi) ?? []).length;
     const links = extractLinks(html, new URL(response.url));
     const internalLinks = links.filter(link => {
       try { return new URL(link).hostname === new URL(response.url).hostname; } catch { return false; }
