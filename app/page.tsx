@@ -105,6 +105,7 @@ type Lead = {
   contactabilityScore?: number;
   dataConfidenceScore?: number;
   intelligence?: {
+    components?: Array<{ key: string; value: number; max: number; label?: string }>;
     confidence?: 'high' | 'medium' | 'low';
     dataCompleteness?: number;
     reasons?: string[];
