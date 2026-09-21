@@ -37,12 +37,12 @@ export async function POST(request: Request) {
 
     if (!lead?.name) return NextResponse.json({ error: 'Lead data is required.' }, { status: 400 });
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.AI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({
         mode: 'rules',
         message: fallbackMessage(lead, channel),
-        note: 'OPENAI_API_KEY is not configured. This draft was generated from the verified audit findings, not an LLM.',
+        note: 'AI_API_KEY is not configured. This draft was generated from the verified audit findings, not an LLM.',
       });
     }
 
@@ -59,14 +59,14 @@ Verified findings: ${JSON.stringify(lead.findings || []).slice(0, 7000)}
 Recommended service: ${lead.recommendedService || lead.opportunity || ''}
 Write the message in a natural, human tone. Keep it concise. Mention one real issue, one relevant fix, and a low-pressure CTA. Do not use emojis unless clearly appropriate. Output only the message.`;
 
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    const response = await fetch('`${process.env.AI_BASE_URL || 'https://api.openai.com/v1'}/responses`', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-5.6-luna',
+        model: process.env.AI_MODEL || '',
         input: prompt,
         max_output_tokens: 280,
       }),
@@ -89,7 +89,7 @@ Write the message in a natural, human tone. Keep it concise. Mention one real is
     return NextResponse.json({
       mode: 'ai',
       message: String(data?.output_text || fallbackMessage(lead, channel)).trim(),
-      model: process.env.OPENAI_MODEL || 'gpt-5.6-luna',
+      model: process.env.AI_MODEL || '',
     });
   } catch {
     return NextResponse.json({ error: 'Unable to generate outreach.' }, { status: 500 });
