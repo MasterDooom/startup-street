@@ -37,7 +37,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const query = cleanText(body?.query);
     const city = cleanText(body?.city);
-    const pageSize = Math.min(Math.max(Number(body?.pageSize) || 10, 1), 20);
+    const resultLimit = Math.min(Math.max(Number(body?.pageSize) || 10, 1), 60);
+    const pageSize = Math.min(resultLimit, 20);
     const provider = cleanText(body?.provider || 'auto').toLowerCase();
     const pageToken = cleanText(body?.pageToken);
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
 
     if (!apiKey && (provider === 'auto' || provider === 'osm')) {
       try {
-        const leads = await osmProvider.search({ query, city, pageSize });
+        const leads = await osmProvider.search({ query, city, pageSize: resultLimit });
         const analyzed = leads.map((lead) => {
           const intelligence = analyzeLead({
             name: lead.name,
@@ -99,50 +100,68 @@ export async function POST(request: Request) {
     }
 
     const textQuery = city ? query + ' in ' + city + ', India' : query;
-    const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': apiKey!,
-        'X-Goog-FieldMask': [
-          'places.id',
-          'places.displayName',
-          'places.primaryType',
-          'places.types',
-          'places.formattedAddress',
-          'places.postalAddress',
-          'places.websiteUri',
-          'places.nationalPhoneNumber',
-          'places.googleMapsUri',
-          'places.rating',
-          'places.userRatingCount',
-          'places.businessStatus',
-          'places.priceRange',
-          'places.pureServiceAreaBusiness',
-          'places.openingDate',
-        ].join(','),
-      },
-      body: JSON.stringify({
-        textQuery,
-        pageSize,
-        regionCode: 'IN',
-        ...(pageToken ? { pageToken } : {}),
-      }),
-      cache: 'no-store',
-    });
+    const fieldMask = [
+      'places.id',
+      'places.displayName',
+      'places.primaryType',
+      'places.types',
+      'places.formattedAddress',
+      'places.postalAddress',
+      'places.websiteUri',
+      'places.nationalPhoneNumber',
+      'places.googleMapsUri',
+      'places.rating',
+      'places.userRatingCount',
+      'places.businessStatus',
+      'places.priceRange',
+      'places.pureServiceAreaBusiness',
+      'places.openingDate',
+      'nextPageToken',
+    ].join(',');
 
-    if (!response.ok) {
-      const detail = await response.text();
-      return NextResponse.json(
-        { configured: true, provider: 'google', error: 'Google Places request failed (' + response.status + ').', detail: detail.slice(0, 800) },
-        { status: response.status },
-      );
+    async function fetchGooglePage(pageToken?: string) {
+      const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey!,
+          'X-Goog-FieldMask': fieldMask,
+        },
+        body: JSON.stringify({
+          textQuery,
+          pageSize,
+          regionCode: 'IN',
+          ...(pageToken ? { pageToken } : {}),
+        }),
+        cache: 'no-store',
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error('Google Places request failed (' + response.status + '): ' + detail.slice(0, 500));
+      }
+
+      return (await response.json()) as PlacesResponse;
     }
 
-    const data = (await response.json()) as PlacesResponse;
-    const retrievedAt = new Date().toISOString();
+    const pages: PlacesResponse[] = [];
+    let nextPageToken: string | undefined = pageToken || undefined;
+    let total = 0;
+    const maxPages = pageToken ? 1 : Math.ceil(resultLimit / pageSize);
 
-    const leads = (data.places ?? []).map((place, index) => {
+    for (let page = 0; page < maxPages && total < resultLimit; page += 1) {
+      if (page > 0) await new Promise((resolve) => setTimeout(resolve, 1200));
+      const data = await fetchGooglePage(nextPageToken);
+      pages.push(data);
+      total += data.places?.length ?? 0;
+      nextPageToken = data.nextPageToken;
+      if (!nextPageToken) break;
+    }
+
+    const retrievedAt = new Date().toISOString();
+    const googlePlaces = pages.flatMap((data) => data.places ?? []).slice(0, resultLimit);
+
+    const leads = googlePlaces.map((place, index) => {
       const name = cleanText(place.displayName?.text) || 'Unnamed business';
       const address = cleanText(place.formattedAddress);
       const postalCode = cleanText(place.postalAddress?.postalCode);
@@ -214,7 +233,8 @@ export async function POST(request: Request) {
       provider: 'google',
       query: textQuery,
       leads,
-      nextPageToken: data.nextPageToken || null,
+      nextPageToken: nextPageToken || null,
+      pagesFetched: pages.length,
     });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message.slice(0, 300) : 'Unable to complete discovery request.' }, { status: 500 });
