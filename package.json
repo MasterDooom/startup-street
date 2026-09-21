@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "postinstall": "prisma generate"
   },
@@ -29,6 +29,6 @@
   "devDependencies": {
     "prisma": "^6.16.2",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^14.2.15"
+    "eslint-config-next": "14.2.15"
   }
 }
