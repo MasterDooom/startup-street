@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LeadStatus {
+  New
+  Researched
+  NeedsReview
+  Verified
+  ReadyToContact
+  Contacted
+  Replied
+  Interested
+  MeetingBooked
+  ProposalSent
+  Won
+  Lost
+  DoNotContact
+}
+
+model Business {
+  id               String       @id @default(cuid())
+  name             String
+  normalizedName   String
+  category         String?
+  type             String?
+  address          String?
+  city             String
+  state            String?
+  postalCode       String?
+  website          String?
+  normalizedDomain String?
+  phone            String?
+  normalizedPhone  String?
+  mapsUrl          String?
+  status           LeadStatus   @default(New)
+  score            Int           @default(0)
+  scoreBreakdown   Json?
+  opportunity      String?
+  recommendedService String?
+  priceRange       String?
+  evidence         String?
+  notes            String?
+  doNotContact     Boolean      @default(false)
+  providerRecords  ProviderRecord[]
+  contacts         Contact[]
+  audits           WebsiteAudit[]
+  signals          BuyingSignal[]
+  outreachDrafts   OutreachDraft[]
+  pipelineEvents   PipelineEvent[]
+  suppression      SuppressionRecord?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([city, state])
+  @@index([normalizedName, city])
+  @@index([normalizedDomain])
+  @@index([normalizedPhone])
+}
+
+model ProviderRecord {
+  id             String   @id @default(cuid())
+  businessId     String
+  provider       String
+  providerId     String
+  sourceUrl      String?
+  retrievedAt    DateTime @default(now())
+  confidence     String   @default("medium")
+  evidence       String?
+  raw            Json?
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([businessId])
+}
+
+model Contact {
+  id             String   @id @default(cuid())
+  businessId     String
+  channel        String
+  value          String
+  normalizedValue String?
+  sourceUrl      String?
+  confidence     String   @default("medium")
+  retrievedAt    DateTime @default(now())
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([normalizedValue])
+}
+
+model WebsiteAudit {
+  id               String   @id @default(cuid())
+  businessId       String
+  url              String
+  finalUrl         String?
+  reachable        Boolean
+  httpStatus       Int?
+  responseMs       Int?
+  title            String?
+  score            Int?
+  metrics          Json?
+  findings         Json
+  retrievedAt      DateTime @default(now())
+  business         Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, retrievedAt])
+}
+
+model BuyingSignal {
+  id          String   @id @default(cuid())
+  businessId  String
+  signal      String
+  evidence    String
+  sourceUrl   String?
+  observedAt  DateTime @default(now())
+  expiresAt   DateTime?
+  confidence  String   @default("medium")
+  kind        String   @default("observed")
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, observedAt])
+}
+
+model OutreachDraft {
+  id            String   @id @default(cuid())
+  businessId    String
+  channel       String
+  draft         String
+  evidenceUsed  Json?
+  generatedBy   String
+  approved      Boolean  @default(false)
+  approvedAt    DateTime?
+  generatedAt   DateTime @default(now())
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, generatedAt])
+}
+
+model PipelineEvent {
+  id          String     @id @default(cuid())
+  businessId  String
+  fromStatus  LeadStatus?
+  toStatus    LeadStatus
+  note        String?
+  occurredAt  DateTime   @default(now())
+  business    Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, occurredAt])
+}
+
+model SuppressionRecord {
+  id          String   @id @default(cuid())
+  businessId  String   @unique
+  reason      String?
+  createdAt   DateTime @default(now())
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model ApiUsage {
+  id          String   @id @default(cuid())
+  provider    String
+  operation   String
+  units       Int      @default(1)
+  estimatedCostCents Int?
+  createdAt   DateTime @default(now())
+
+  @@index([provider, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
