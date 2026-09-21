@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { lookup } from 'node:dns/promises';
 
 type Finding = {
   id: string;
@@ -32,6 +33,58 @@ function blockedHost(hostname: string) {
     /^10\./.test(host) ||
     /^192\.168\./.test(host) ||
     /^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+}
+
+function privateIpv4(ip: string) {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) return false;
+  const [a, b] = parts;
+  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
+function privateIpv6(ip: string) {
+  const value = ip.toLowerCase();
+  return value === '::1' || value === '::' || value.startsWith('fc') || value.startsWith('fd') || value.startsWith('fe80:');
+}
+
+async function assertPublicHost(hostname: string) {
+  if (blockedHost(hostname)) throw new Error('Private or local hosts cannot be audited.');
+  const records = await lookup(hostname, { all: true, verbatim: true });
+  if (!records.length || records.some((record) => privateIpv4(record.address) || privateIpv6(record.address))) {
+    throw new Error('The target resolves to a private or local network address.');
+  }
+}
+
+async function fetchSafely(startUrl: URL, maxRedirects = 4) {
+  let current = new URL(startUrl.toString());
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    await assertPublicHost(current.hostname);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(current.toString(), {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: { 'User-Agent': 'StartupStreetAudit/2.0' },
+        cache: 'no-store',
+      });
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) throw new Error('Redirect response did not include a location.');
+        current = new URL(location, current);
+        continue;
+      }
+
+      return response;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw new Error('Too many redirects.');
 }
 
 function extractLinks(html: string, baseUrl: URL) {
@@ -89,19 +142,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Only public HTTP(S) websites can be audited.' }, { status: 400 });
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
     let response: Response;
-
     try {
-      response = await fetch(target.toString(), {
-        redirect: 'follow',
-        signal: controller.signal,
-        headers: { 'User-Agent': 'StartupStreetAudit/1.0' },
-        cache: 'no-store',
-      });
-    } finally {
-      clearTimeout(timeout);
+      response = await fetchSafely(target);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          url: target.toString(),
+          finalUrl: target.toString(),
+          reachable: false,
+          findings: [finding('network-guard', 'Website could not be safely fetched', error instanceof Error ? error.message : 'Network safety check failed.', 'critical', 'SSRF/private-network guard rejected the request.', 'high', 'Verify that the public website resolves to a publicly routable address.')],
+          score: 0,
+        },
+        { status: 400 },
+      );
     }
 
     if (!response.ok) {
