@@ -59,7 +59,7 @@ Verified findings: ${JSON.stringify(lead.findings || []).slice(0, 7000)}
 Recommended service: ${lead.recommendedService || lead.opportunity || ''}
 Write the message in a natural, human tone. Keep it concise. Mention one real issue, one relevant fix, and a low-pressure CTA. Do not use emojis unless clearly appropriate. Output only the message.`;
 
-    const response = await fetch('`${process.env.AI_BASE_URL || 'https://api.openai.com/v1'}/responses`', {
+    const response = await fetch(`${process.env.AI_BASE_URL || 'https://api.openai.com/v1'}/responses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
