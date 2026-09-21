@@ -1905,13 +1905,14 @@ function FindingCard({ finding, compact }: { finding: Finding; compact?: boolean
 
 function ScoreBars({ breakdown }: { breakdown: ScoreBreakdown }) {
   const items = [
-    ['Website gap', breakdown.websiteGap, 25],
-    ['Buying signals', breakdown.buyingSignals, 25],
-    ['Business fit', breakdown.businessFit, 20],
-    ['Contactability', breakdown.contactability, 15],
-    ['Service relevance', breakdown.serviceRelevance, 15],
+    ['Growth potential', breakdown.growth ?? 0, 25],
+    ['Website opportunity', breakdown.website ?? breakdown.websiteGap ?? 0, 25],
+    ['Buying signals', breakdown.buying ?? breakdown.buyingSignals ?? 0, 20],
+    ['Agency service fit', breakdown.fit ?? breakdown.businessFit ?? 0, 15],
+    ['Contactability', breakdown.contact ?? breakdown.contactability ?? 0, 10],
+    ['Data confidence', breakdown.confidence ?? 0, 5],
   ];
-  return <div className="score-bars">{items.map(([label, value, max]) => <div key={String(label)}><div className="score-bar-head"><span>{label}</span><b>{value}/{max}</b></div><div className="bar-track"><i style={{ width: \`\${(Number(value) / Number(max)) * 100}%\` }} /></div></div>)}</div>;
+  return <div className="score-bars">{items.map(([label, value, max]) => <div key={String(label)}><div className="score-bar-head"><span>{label}</span><b>{value}/{max}</b></div><div className="bar-track"><i style={{ width: \`\${Math.min(100, (Number(value) / Number(max)) * 100)}%\` }} /></div></div>)}</div>;
 }
 
 function InfoCell({ icon: Icon, label, value, href }: { icon: typeof Globe; label: string; value: string; href?: string }) {
