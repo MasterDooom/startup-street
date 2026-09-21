@@ -14,8 +14,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
       - run: npm install
-      - run: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/startup_street npx prisma validate
+      - run: npx prisma validate
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
