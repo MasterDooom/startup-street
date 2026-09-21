@@ -1067,6 +1067,67 @@ export default function Home() {
     });
   }
 
+  function toggleShortlist(lead: Lead) {
+    updateLead(lead.id, {
+      shortlisted: !lead.shortlisted,
+      rejected: false,
+    });
+  }
+
+  async function createCampaignFromShortlist() {
+    const ids = leads.filter((lead) => lead.shortlisted && !lead.doNotContact && !lead.rejected).map((lead) => lead.id);
+    if (!ids.length) {
+      setDataError('Shortlist at least one verified lead before creating a campaign.');
+      return;
+    }
+    if (storageMode !== 'database') {
+      setDataError('Campaign persistence requires DATABASE_URL. The live lead intelligence still works locally.');
+      return;
+    }
+
+    setCampaignLoading(true);
+    try {
+      const response = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: campaignName.trim() || niche.label + ' outreach',
+          niche: niche.label,
+          channel: campaignChannel,
+          businessIds: ids,
+          filters: { shortlisted: true, niche: niche.label },
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Campaign creation failed.');
+      setCampaignName('');
+      await loadCampaigns();
+      setActiveView('campaigns');
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : 'Campaign creation failed.');
+    } finally {
+      setCampaignLoading(false);
+    }
+  }
+
+  async function updateCampaignRecipient(campaignId: string, recipientId: string, patch: { recipientStatus?: string; draft?: string; approved?: boolean }) {
+    if (storageMode !== 'database') return;
+    try {
+      const response = await fetch('/api/campaigns/' + encodeURIComponent(campaignId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientId,
+          ...patch,
+        }),
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Campaign update failed.');
+      await loadCampaigns();
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : 'Campaign update failed.');
+    }
+  }
+
   async function copyToClipboard(value: string) {
     try {
       await navigator.clipboard.writeText(value);
