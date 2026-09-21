@@ -64,15 +64,26 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       });
     }
 
+    const recipients = await prisma.campaignRecipient.findMany({
+      where: { campaignId: params.id },
+      select: { status: true },
+    });
+
+    const counts = recipients.reduce(
+      (acc, item) => {
+        if (item.status === 'Approved') acc.approved += 1;
+        if (item.status === 'Contacted') acc.contacted += 1;
+        if (item.status === 'Replied') acc.replied += 1;
+        if (item.status === 'MeetingBooked') acc.meetings += 1;
+        if (item.status === 'Won') acc.won += 1;
+        return acc;
+      },
+      { approved: 0, contacted: 0, replied: 0, meetings: 0, won: 0 },
+    );
+
     await prisma.campaign.update({
       where: { id: params.id },
-      data: {
-        approved: { increment: input.approved ? 1 : 0 },
-        contacted: { increment: input.recipientStatus === 'Contacted' ? 1 : 0 },
-        replied: { increment: input.recipientStatus === 'Replied' ? 1 : 0 },
-        meetings: { increment: input.recipientStatus === 'MeetingBooked' ? 1 : 0 },
-        won: { increment: input.recipientStatus === 'Won' ? 1 : 0 },
-      },
+      data: counts,
     });
 
     return NextResponse.json({ configured: true, recipient: updated });
