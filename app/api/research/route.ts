@@ -29,7 +29,7 @@ Return a concise research brief with:
 5) anything that could make this lead a poor fit.
 Do not invent facts. Clearly label uncertainty. Do not collect private personal information. This output is research for human review, not an automatic outreach decision.`;
 
-    const response = await fetch('`${process.env.AI_BASE_URL || 'https://api.openai.com/v1'}/responses`', {
+    const response = await fetch(`${process.env.AI_BASE_URL || 'https://api.openai.com/v1'}/responses`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
