@@ -104,23 +104,40 @@ function extractLinks(html: string, baseUrl: URL) {
   return Array.from(new Set(links));
 }
 
-async function checkLink(url: string) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3500);
-  try {
-    const response = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: { 'User-Agent': 'StartupStreetAudit/1.0' },
-      cache: 'no-store',
-    });
-    return response.status;
-  } catch {
-    return 0;
-  } finally {
-    clearTimeout(timeout);
+async function checkLink(url: string, expectedHostname: string) {
+  let current = new URL(url);
+  if (!['http:', 'https:'].includes(current.protocol) || current.hostname !== expectedHostname) return 0;
+
+  for (let redirectCount = 0; redirectCount <= 3; redirectCount += 1) {
+    await assertPublicHost(current.hostname);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+    try {
+      const response = await fetch(current.toString(), {
+        method: 'HEAD',
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: { 'User-Agent': 'StartupStreetAudit/2.0' },
+        cache: 'no-store',
+      });
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get('location');
+        if (!location) return 0;
+        current = new URL(location, current);
+        if (current.hostname !== expectedHostname) return 0;
+        continue;
+      }
+
+      return response.status;
+    } catch {
+      return 0;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  return 0;
 }
 
 export async function POST(request: Request) {
@@ -187,6 +204,19 @@ export async function POST(request: Request) {
       });
     }
 
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (contentLength > 6_000_000) {
+      return NextResponse.json({
+        url: target.toString(),
+        finalUrl: response.url,
+        reachable: true,
+        httpStatus: response.status,
+        responseMs: Date.now() - started,
+        findings: [finding('page-size', 'Page is unusually large', 'The returned document is larger than the lightweight audit budget.', 'medium', contentLength + ' bytes reported by the server.', 'high', 'Reduce HTML payload and defer non-essential content.')],
+        score: 86,
+      });
+    }
+
     const arrayBuffer = await response.arrayBuffer();
     const html = new TextDecoder().decode(arrayBuffer.slice(0, 2_500_000));
     const lower = html.toLowerCase();
@@ -208,9 +238,10 @@ export async function POST(request: Request) {
     const hasCatering = /(catering|events|weddings|corporate|party orders)/i.test(lower);
     const socialLinks = (html.match(/https?:\/\/(?:www\.)?(?:instagram\.com|facebook\.com|linkedin\.com|youtube\.com|tiktok\.com)/gi) ?? []).length;
     const links = extractLinks(html, new URL(response.url));
+    const responseHost = new URL(response.url).hostname;
     const internalLinks = links.filter(link => {
-      try { return new URL(link).hostname === new URL(response.url).hostname; } catch { return false; }
-    }).slice(0, 8);
+      try { return new URL(link).hostname === responseHost; } catch { return false; }
+    }).slice(0, 6);
 
     if (!viewport) findings.push(finding('viewport', 'No mobile viewport tag detected', 'The document does not declare the standard responsive viewport meta tag.', 'high', 'No <meta name="viewport"> detected.', 'high', 'Implement a responsive mobile layout and viewport configuration.'));
     if (!title) findings.push(finding('title', 'Missing page title', 'Search engines and users have less context about the page.', 'medium', 'No usable <title> was found.', 'high', 'Add a concise title matching the business and location.'));
@@ -227,11 +258,8 @@ export async function POST(request: Request) {
     if (socialLinks === 0) findings.push(finding('social', 'No social profile links detected', 'The site does not visibly connect visitors to public social proof.', 'low', 'No common social links detected.', 'medium', 'Add social links selectively where they strengthen trust.'));
     if (hasCatering === false && /(interior|design|renovation|event|solar|home service)/i.test(lower)) findings.push(finding('proof', 'No dedicated project/service proof signal', 'The page appears service-led but lacks an obvious portfolio/case-study or project proof section.', 'medium', 'No strong project-proof keywords detected.', 'low', 'Add before/after work, projects, process, testimonials, or case studies.'));
 
-    let brokenLinks = 0;
-    for (const link of internalLinks) {
-      const status = await checkLink(link);
-      if (status >= 400 || status === 0) brokenLinks += 1;
-    }
+    const linkStatuses = await Promise.all(internalLinks.map((link) => checkLink(link, responseHost)));
+    const brokenLinks = linkStatuses.filter((status) => status >= 400 || status === 0).length;
     if (brokenLinks > 0) findings.push(finding('broken-links', 'Broken internal links detected', `${brokenLinks} internal link(s) failed a lightweight availability check.`, 'high', `Checked up to ${internalLinks.length} internal links; ${brokenLinks} failed.`, 'medium', 'Repair dead links and remove stale navigation paths.'));
 
     // "Visual freshness" and true mobile performance require a browser/Lighthouse provider.
