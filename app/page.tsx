@@ -619,6 +619,10 @@ export default function Home() {
   }, []);;
 
   useEffect(() => {
+    if (ready && storageMode === 'database') void loadCampaigns();
+  }, [ready, storageMode]);
+
+  useEffect(() => {
     if (!ready) return;
     try {
       window.localStorage.setItem(ACTIVE_NICHE_KEY, activeNiche);
@@ -682,7 +686,7 @@ export default function Home() {
     if (storageMode !== 'database') return;
     const body: Record<string, unknown> = {};
 
-    for (const key of ['score', 'scoreBreakdown', 'findings', 'opportunity', 'recommendedService', 'notes', 'doNotContact', 'website', 'phone', 'mapsUrl']) {
+    for (const key of ['score', 'scoreBreakdown', 'findings', 'opportunity', 'opportunityReasons', 'whyNow', 'recommendedService', 'notes', 'doNotContact', 'shortlisted', 'rejected', 'intelligence', 'website', 'phone', 'mapsUrl']) {
       if ((patch as any)[key] !== undefined) body[key] = (patch as any)[key];
     }
     if (patch.status) body.status = apiStatus(patch.status);
@@ -886,6 +890,60 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  async function runIntelligence(lead: Lead, extra?: { findings?: Finding[]; metrics?: AuditResult['metrics'] }) {
+    setIntelligenceLoading(true);
+    try {
+      const response = await fetch('/api/intelligence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead: { ...lead, findings: extra?.findings ?? lead.findings },
+          metrics: extra?.metrics,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.result) throw new Error(data?.error || 'Intelligence analysis failed.');
+      const result = data.result;
+      const breakdown = Object.fromEntries(result.components.map((item: any) => [item.key, item.value]));
+
+      const patch: Partial<Lead> = {
+        score: result.score,
+        scoreBreakdown: breakdown,
+        intelligence: result,
+        growthScore: result.components.find((item: any) => item.key === 'growth')?.value,
+        websiteOpportunityScore: result.components.find((item: any) => item.key === 'website')?.value,
+        buyingSignalScore: result.components.find((item: any) => item.key === 'buying')?.value,
+        agencyFitScore: result.components.find((item: any) => item.key === 'fit')?.value,
+        contactabilityScore: result.components.find((item: any) => item.key === 'contact')?.value,
+        dataConfidenceScore: result.components.find((item: any) => item.key === 'confidence')?.value,
+        opportunity: result.opportunity,
+        recommendedService: result.recommendedService,
+        priceRange: result.priceRange,
+        evidence: result.reasons?.[0] || lead.evidence,
+        status: lead.status === 'New' ? 'Researched' : lead.status,
+      };
+
+      updateLead(lead.id, patch);
+      return patch;
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : 'Intelligence analysis failed.');
+      return null;
+    } finally {
+      setIntelligenceLoading(false);
+    }
+  }
+
+  async function loadCampaigns() {
+    if (storageMode !== 'database') return;
+    try {
+      const response = await fetch('/api/campaigns', { cache: 'no-store' });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data.campaigns)) setCampaigns(data.campaigns);
+    } catch {
+      setDataError('Campaigns could not be loaded from the database.');
+    }
+  }
+
   async function runDiscovery() {
     setDiscoverLoading(true);
     setDiscoveryMessage('');
@@ -900,7 +958,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Discovery failed.');
 
-      const results = Array.isArray(data.leads) ? data.leads as Lead[] : [];
+      const results = Array.isArray(data.leads) ? (data.leads as Lead[]).sort((a, b) => b.score - a.score) : [];
       setDiscoveryResults(results);
       setDiscoveryMessage(results.length ? \`\${results.length} public business records found. Audit before outreach.\` : 'No results returned.');
     } catch (error) {
@@ -933,18 +991,16 @@ export default function Home() {
       setAuditUrl(data.finalUrl || data.url || url);
 
       if (targetLead) {
-        const scoring = scoreFromAudit(targetLead, data);
         const strongest = data.findings.find((item: Finding) => item.severity === 'critical' || item.severity === 'high');
-        const patch: Partial<Lead> = {
+        await runIntelligence(
+          { ...targetLead, findings: data.findings },
+          { findings: data.findings, metrics: data.metrics },
+        );
+        updateLead(targetLead.id, {
           findings: data.findings,
-          score: scoring.score,
-          scoreBreakdown: scoring.scoreBreakdown,
           evidence: strongest?.problem || 'Audit completed. Review the findings before outreach.',
-          opportunity: strongest?.fix || recommendedOffer(targetLead),
-          recommendedService: recommendedOffer(targetLead),
           status: targetLead.status === 'New' ? 'Needs review' : targetLead.status,
-        };
-        updateLead(targetLead.id, patch);
+        });
       }
     } catch (error) {
       setAuditMessage(error instanceof Error ? error.message : 'Audit failed.');
