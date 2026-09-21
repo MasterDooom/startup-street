@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import './campaign.css';
 
 export const metadata: Metadata = {
   title: 'Startup Street — Lead Intelligence',
