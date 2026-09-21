@@ -1875,7 +1875,7 @@ export default function Home() {
                   <button className="outline-btn small" onClick={() => runIntelligence(selected)} disabled={intelligenceLoading}><Sparkles size={14} /> {intelligenceLoading ? 'Analyzing' : 'Analyze intelligence'}</button>
                   {selected.website && <button className="outline-btn small" onClick={() => runAudit(selected)} disabled={auditLoading}><FileSearch size={14} /> {auditLoading ? 'Auditing' : 'Audit site'}</button>}
                   {!selected.doNotContact && <button className="outline-btn small" onClick={runResearch} disabled={researchLoading}><Globe size={14} /> {researchLoading ? 'Researching' : 'Deep research'}</button>
-                  {!selected.doNotContact && <button className="primary-btn small" onClick={() => document.getElementById('outreach-box')?.scrollIntoView({ behavior: 'smooth' })}><Send size={14} /> Draft outreach</button>}
+                  {!selected.doNotContact && <button className="primary-btn small" onClick={() => document.getElementById('outreach-box')?.scrollIntoView()}><Send size={14} /> Draft outreach</button>}
                 </div>
               </div>
             </div>
