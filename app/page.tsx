@@ -1296,7 +1296,7 @@ export default function Home() {
 
         <div className="sidebar-bottom">
           <div className="mini-stat">
-            <span>Today's target</span>
+            <span>Today&apos;s target</span>
             <strong>10 conversations</strong>
             <div className="mini-track"><i style={{ width: `${Math.min(100, (stats.contact / 10) * 100)}%` }} /></div>
             <small>{Math.min(10, stats.contact)} / 10 active leads</small>
