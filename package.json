@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@types/node": "^20.0.0",
@@ -17,7 +18,10 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "lucide-react": "^0.468.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "@prisma/client": "^6.16.2"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "prisma": "^6.16.2"
+  }
 }
