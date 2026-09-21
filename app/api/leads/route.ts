@@ -12,6 +12,8 @@ const leadSchema = z.object({
   postalCode: z.string().max(20).default(''),
   website: z.string().url().or(z.literal('')).default(''),
   phone: z.string().max(80).default(''),
+  email: z.string().email().or(z.literal('')).default(''),
+  social: z.string().url().or(z.literal('')).default(''),
   mapsUrl: z.string().url().or(z.literal('')).default(''),
   source: z.string().max(120).default('manual'),
   provider: z.string().max(80).default('manual'),
@@ -200,6 +202,13 @@ export async function POST(request: Request) {
           evidence: input.evidence,
         },
       } : undefined,
+      contacts: {
+        create: [
+          ...(input.email ? [{ channel: 'email', value: input.email, normalizedValue: input.email.toLowerCase(), confidence: 'medium' }] : []),
+          ...(input.phone ? [{ channel: 'phone', value: input.phone, normalizedValue: normalizePhone(input.phone), confidence: 'medium' }] : []),
+          ...(input.social ? [{ channel: 'social', value: input.social, normalizedValue: input.social.toLowerCase(), confidence: 'medium' }] : []),
+        ],
+      },
     },
     include,
   });
