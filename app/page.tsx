@@ -1174,7 +1174,10 @@ export default function Home() {
         <nav className="nav-stack">
           {[
             ['dashboard', 'Command center', BarChart3],
-            ['leads', 'Lead radar', Target],
+            ['leads', 'Lead intelligence', Target],
+            ['shortlist', 'Shortlist', Sparkles],
+            ['campaigns', 'Campaigns', Send],
+            ['pipeline', 'Pipeline', CircleDollarSign],
             ['audits', 'Website audits', FileSearch],
             ['outreach', 'Outreach queue', Send],
             ['sources', 'Sources & setup', Settings2],
@@ -1187,6 +1190,8 @@ export default function Home() {
               <Icon size={17} />
               <span>{String(label)}</span>
               {view === 'leads' && <em>{leads.length}</em>}
+              {view === 'shortlist' && <em>{leads.filter((lead) => lead.shortlisted).length}</em>}
+              {view === 'campaigns' && <em>{campaigns.length}</em>}
             </button>
           ))}
         </nav>
