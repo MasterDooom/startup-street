@@ -36,12 +36,14 @@ import {
 type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 type Status =
   | 'New'
+  | 'Researched'
   | 'Needs review'
   | 'Verified'
   | 'Ready to contact'
   | 'Contacted'
   | 'Replied'
   | 'Interested'
+  | 'Meeting booked'
   | 'Proposal sent'
   | 'Won'
   | 'Lost'
@@ -58,11 +60,17 @@ type Finding = {
 };
 
 type ScoreBreakdown = {
-  websiteGap: number;
-  buyingSignals: number;
-  businessFit: number;
-  contactability: number;
-  serviceRelevance: number;
+  growth?: number;
+  website?: number;
+  buying?: number;
+  fit?: number;
+  contact?: number;
+  confidence?: number;
+  websiteGap?: number;
+  buyingSignals?: number;
+  businessFit?: number;
+  contactability?: number;
+  serviceRelevance?: number;
 };
 
 type Lead = {
@@ -88,6 +96,22 @@ type Lead = {
   priceRange: string;
   evidence: string;
   notes: string;
+  shortlisted?: boolean;
+  rejected?: boolean;
+  growthScore?: number;
+  websiteOpportunityScore?: number;
+  buyingSignalScore?: number;
+  agencyFitScore?: number;
+  contactabilityScore?: number;
+  dataConfidenceScore?: number;
+  intelligence?: {
+    confidence?: 'high' | 'medium' | 'low';
+    dataCompleteness?: number;
+    reasons?: string[];
+    growthSignals?: Array<{ signal: string; evidence: string; kind?: string; confidence?: string }>;
+    digitalSignals?: Array<{ signal: string; evidence: string; confidence?: string }>;
+    whyNow?: string[];
+  } | null;
   doNotContact: boolean;
   sourceMeta?: {
     googleRating?: number | null;
@@ -100,6 +124,26 @@ type Lead = {
     generatedAt: string;
     approved: boolean;
   };
+};
+
+type Campaign = {
+  id: string;
+  name: string;
+  niche?: string | null;
+  channel: string;
+  status: string;
+  total: number;
+  approved: number;
+  contacted: number;
+  replied: number;
+  meetings: number;
+  won: number;
+  recipients?: Array<{
+    id: string;
+    status: string;
+    draft?: string | null;
+    business: { id: string; name: string; city: string; score: number; status: string };
+  }>;
 };
 
 type AuditResult = {
@@ -306,12 +350,14 @@ const sampleLeads: Lead[] = [
 const statusOptions: Array<'All' | Status> = [
   'All',
   'New',
+  'Researched',
   'Needs review',
   'Verified',
   'Ready to contact',
   'Contacted',
   'Replied',
   'Interested',
+  'Meeting booked',
   'Proposal sent',
   'Won',
   'Lost',
@@ -483,9 +529,14 @@ export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [ready, setReady] = useState(false);
   const [storageMode, setStorageMode] = useState<'database' | 'local'>('local');
+  const [intelligenceLoading, setIntelligenceLoading] = useState(false);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [campaignLoading, setCampaignLoading] = useState(false);
+  const [campaignName, setCampaignName] = useState('');
+  const [campaignChannel, setCampaignChannel] = useState<'email' | 'instagram' | 'whatsapp' | 'linkedin' | 'phone'>('email');
   const [syncing, setSyncing] = useState(false);
   const [dataError, setDataError] = useState('');
-  const [activeView, setActiveView] = useState<'dashboard' | 'leads' | 'audits' | 'outreach' | 'sources'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'leads' | 'shortlist' | 'campaigns' | 'pipeline' | 'audits' | 'outreach' | 'sources'>('dashboard');
   const [activeNiche, setActiveNiche] = useState('interior');
   const [city, setCity] = useState('Bengaluru');
   const [query, setQuery] = useState('');
