@@ -127,9 +127,11 @@ export async function POST(request: Request) {
               },
             });
           }
+
+          return tx.business.findUnique({ where: { id: lead.id! }, select: { id: true } });
         });
 
-        return NextResponse.json({ configured: true, persisted: true, result, businessId: updated.id });
+        return NextResponse.json({ configured: true, persisted: true, result, businessId: updated?.id });
       }
     }
 
