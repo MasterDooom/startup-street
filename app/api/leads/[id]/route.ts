@@ -92,7 +92,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
 
     if (input.doNotContact) {
-      await tx.suppression.upsert({
+      await tx.suppressionRecord.upsert({
         where: { businessId: row.id },
         create: { businessId: row.id, reason: 'User-suppressed lead' },
         update: {},
