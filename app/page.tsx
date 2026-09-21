@@ -483,6 +483,7 @@ export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [ready, setReady] = useState(false);
   const [storageMode, setStorageMode] = useState<'database' | 'local'>('local');
+  const [syncing, setSyncing] = useState(false);
   const [dataError, setDataError] = useState('');
   const [activeView, setActiveView] = useState<'dashboard' | 'leads' | 'audits' | 'outreach' | 'sources'>('dashboard');
   const [activeNiche, setActiveNiche] = useState('interior');
@@ -606,9 +607,65 @@ export default function Home() {
     pipeline: leads.filter((lead) => ['Interested', 'Proposal sent'].includes(lead.status)).length,
   };
 
+  function apiStatus(status?: Status) {
+    if (!status) return undefined;
+    const map: Record<string, string> = {
+      'New': 'New',
+      'Researched': 'Researched',
+      'Needs review': 'NeedsReview',
+      'Verified': 'Verified',
+      'Ready to contact': 'ReadyToContact',
+      'Contacted': 'Contacted',
+      'Replied': 'Replied',
+      'Interested': 'Interested',
+      'Meeting booked': 'MeetingBooked',
+      'Proposal sent': 'ProposalSent',
+      'Won': 'Won',
+      'Lost': 'Lost',
+      'Do not contact': 'DoNotContact',
+    };
+    return map[status];
+  }
+
+  function syncLead(id: string, patch: Partial<Lead>) {
+    if (storageMode !== 'database') return;
+    const body: Record<string, unknown> = {};
+
+    for (const key of ['score', 'scoreBreakdown', 'findings', 'opportunity', 'recommendedService', 'notes', 'doNotContact', 'website', 'phone', 'mapsUrl']) {
+      if ((patch as any)[key] !== undefined) body[key] = (patch as any)[key];
+    }
+    if (patch.status) body.status = apiStatus(patch.status);
+    if (patch.outreach) {
+      body.outreach = {
+        channel: patch.outreach.channel,
+        draft: patch.outreach.draft,
+        generatedBy: 'startup-street',
+        approved: patch.outreach.approved,
+      };
+    }
+
+    setSyncing(true);
+    void fetch('/api/leads/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data?.error || 'Database sync failed.');
+        }
+      })
+      .catch((error) => {
+        setDataError(error instanceof Error ? error.message : 'Database sync failed.');
+      })
+      .finally(() => setSyncing(false));
+  }
+
   function updateLead(id: string, patch: Partial<Lead>) {
     setLeads((current) => current.map((lead) => (lead.id === id ? { ...lead, ...patch } : lead)));
     setSelected((current) => current && current.id === id ? { ...current, ...patch } : current);
+    syncLead(id, patch);
   }
 
   function chooseNiche(id: string) {
@@ -866,7 +923,12 @@ export default function Home() {
 
   function deleteSelected() {
     if (!selected) return;
-    setLeads((current) => current.filter((lead) => lead.id !== selected.id));
+    const deletedId = selected.id;
+    setLeads((current) => current.filter((lead) => lead.id !== deletedId));
+    if (storageMode === 'database') {
+      void fetch('/api/leads/' + encodeURIComponent(deletedId), { method: 'DELETE' })
+        .catch(() => setDataError('Lead removed locally, but database deletion failed.'));
+    }
     setSelected(null);
   }
 
