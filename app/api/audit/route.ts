@@ -259,7 +259,7 @@ export async function POST(request: Request) {
     if (hasCatering === false && /(interior|design|renovation|event|solar|home service)/i.test(lower)) findings.push(finding('proof', 'No dedicated project/service proof signal', 'The page appears service-led but lacks an obvious portfolio/case-study or project proof section.', 'medium', 'No strong project-proof keywords detected.', 'low', 'Add before/after work, projects, process, testimonials, or case studies.'));
 
     const linkStatuses = await Promise.all(internalLinks.map((link) => checkLink(link, responseHost)));
-    const brokenLinks = linkStatuses.filter((status) => status >= 400 || status === 0).length;
+    const brokenLinks = linkStatuses.filter((status) => status === 0 || (status >= 400 && ![405, 501].includes(status))).length;
     if (brokenLinks > 0) findings.push(finding('broken-links', 'Broken internal links detected', `${brokenLinks} internal link(s) failed a lightweight availability check.`, 'high', `Checked up to ${internalLinks.length} internal links; ${brokenLinks} failed.`, 'medium', 'Repair dead links and remove stale navigation paths.'));
 
     // "Visual freshness" and true mobile performance require a browser/Lighthouse provider.
