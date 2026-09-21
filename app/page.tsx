@@ -535,6 +535,10 @@ export default function Home() {
   const [campaignLoading, setCampaignLoading] = useState(false);
   const [campaignName, setCampaignName] = useState('');
   const [campaignChannel, setCampaignChannel] = useState<'email' | 'instagram' | 'whatsapp' | 'linkedin' | 'phone'>('email');
+  const [agencyName, setAgencyName] = useState('');
+  const [agencyDescription, setAgencyDescription] = useState('');
+  const [agencyServices, setAgencyServices] = useState('');
+  const [agencySaving, setAgencySaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [dataError, setDataError] = useState('');
   const [activeView, setActiveView] = useState<'dashboard' | 'leads' | 'shortlist' | 'campaigns' | 'pipeline' | 'audits' | 'outreach' | 'sources'>('dashboard');
@@ -623,7 +627,10 @@ export default function Home() {
   }, []);;
 
   useEffect(() => {
-    if (ready && storageMode === 'database') void loadCampaigns();
+    if (ready && storageMode === 'database') {
+      void loadCampaigns();
+      void loadAgencyProfile();
+    }
   }, [ready, storageMode]);
 
   useEffect(() => {
@@ -939,6 +946,48 @@ export default function Home() {
       return null;
     } finally {
       setIntelligenceLoading(false);
+    }
+  }
+
+  async function loadAgencyProfile() {
+    if (storageMode !== 'database') return;
+    try {
+      const response = await fetch('/api/agency', { cache: 'no-store' });
+      const data = await response.json();
+      if (response.ok && data.profile) {
+        setAgencyName(data.profile.name || '');
+        setAgencyDescription(data.profile.description || '');
+        setAgencyServices(Array.isArray(data.profile.services) ? data.profile.services.join(', ') : '');
+      }
+    } catch {
+      // Profile setup is optional.
+    }
+  }
+
+  async function saveAgencyProfile() {
+    if (storageMode !== 'database') {
+      setDataError('Agency profile persistence requires DATABASE_URL.');
+      return;
+    }
+    setAgencySaving(true);
+    try {
+      const response = await fetch('/api/agency', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: agencyName || 'Startup Street Agency',
+          description: agencyDescription,
+          services: agencyServices.split(',').map((item) => item.trim()).filter(Boolean),
+          targetNiches: [niche.label],
+          preferredCities: [city],
+        }),
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Could not save agency profile.');
+      setDataError('Agency profile saved.');
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : 'Could not save agency profile.');
+    } finally {
+      setAgencySaving(false);
     }
   }
 
@@ -1712,7 +1761,14 @@ export default function Home() {
                 </div>
               </div>
               <div className="surface setup-panel">
-                <div className="section-head"><div><span className="section-kicker">INTEGRATIONS</span><h2>Connect the real sources</h2><p>Keys stay on the server.</p></div></div>
+                <div className="section-head"><div><span className="section-kicker">AGENCY PROFILE</span><h2>Give the AI something real to sell.</h2><p>Your agency context is used to make outreach more specific.</p></div></div>
+                <div className="discovery-controls">
+                  <label>Agency name<input value={agencyName} onChange={(event) => setAgencyName(event.target.value)} placeholder="Startup Street" /></label>
+                  <label>Description<input value={agencyDescription} onChange={(event) => setAgencyDescription(event.target.value)} placeholder="Web development agency for local growth businesses" /></label>
+                  <label>Services<input value={agencyServices} onChange={(event) => setAgencyServices(event.target.value)} placeholder="websites, landing pages, SEO, redesigns" /></label>
+                  <button className="primary-btn" onClick={saveAgencyProfile} disabled={agencySaving}>{agencySaving ? 'Saving…' : 'Save profile'}</button>
+                </div>
+                <div className="section-head" style={{ marginTop: 28 }}><div><span className="section-kicker">INTEGRATIONS</span><h2>Connect the real sources</h2><p>Keys stay on the server.</p></div></div>
                 <SetupRow name="Google Places API (New)" detail="Live local business discovery" state={process.env.NEXT_PUBLIC_GOOGLE_PLACE_STATUS || 'Not configured'} />
                 <SetupRow name="AI personalization" detail="OpenAI Responses API" state="Optional" />
                 <SetupRow name="Browser visual audit" detail="Lighthouse / screenshot provider" state="Planned" />
