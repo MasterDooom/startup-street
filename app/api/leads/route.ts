@@ -48,6 +48,22 @@ function normalizeDomain(value: string) {
   }
 }
 
+const uiStatus: Record<string, string> = {
+  New: 'New',
+  Researched: 'Researched',
+  NeedsReview: 'Needs review',
+  Verified: 'Verified',
+  ReadyToContact: 'Ready to contact',
+  Contacted: 'Contacted',
+  Replied: 'Replied',
+  Interested: 'Interested',
+  MeetingBooked: 'Meeting booked',
+  ProposalSent: 'Proposal sent',
+  Won: 'Won',
+  Lost: 'Lost',
+  DoNotContact: 'Do not contact',
+};
+
 function toClientLead(row: any) {
   const latestAudit = row.audits?.[0];
   const latestOutreach = row.outreachDrafts?.[0];
@@ -65,7 +81,7 @@ function toClientLead(row: any) {
     mapsUrl: row.mapsUrl ?? '',
     source: row.providerRecords?.[0]?.provider ?? 'database',
     discoveredAt: row.createdAt.toISOString(),
-    status: String(row.status),
+    status: uiStatus[String(row.status)] ?? 'New',
     score: row.score,
     scoreBreakdown: row.scoreBreakdown ?? { websiteGap: 0, buyingSignals: 0, businessFit: 0, contactability: 0, serviceRelevance: 0 },
     findings: latestAudit?.findings ?? [],
