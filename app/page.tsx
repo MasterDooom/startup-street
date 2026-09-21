@@ -677,12 +677,58 @@ export default function Home() {
     }
   }
 
-  function addLead(lead: Lead) {
-    setLeads((current) => {
-      const duplicate = current.some((item) => item.name.toLowerCase() === lead.name.toLowerCase() && item.city.toLowerCase() === lead.city.toLowerCase());
-      if (duplicate) return current;
-      return [lead, ...current];
-    });
+  async function addLead(lead: Lead) {
+    if (leads.some((item) => item.name.toLowerCase() === lead.name.toLowerCase() && item.city.toLowerCase() === lead.city.toLowerCase())) return;
+
+    setLeads((current) => [lead, ...current]);
+
+    if (storageMode !== 'database') return;
+
+    try {
+      setSyncing(true);
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: lead.name,
+          city: lead.city,
+          state: lead.state,
+          type: lead.type,
+          category: lead.category,
+          website: lead.website,
+          phone: lead.phone,
+          mapsUrl: lead.mapsUrl,
+          source: lead.source,
+          provider: lead.source,
+          providerId: lead.id,
+          retrievedAt: lead.discoveredAt,
+          score: lead.score,
+          scoreBreakdown: lead.scoreBreakdown,
+          findings: lead.findings,
+          opportunity: lead.opportunity,
+          recommendedService: lead.recommendedService,
+          priceRange: lead.priceRange,
+          evidence: lead.evidence,
+          notes: lead.notes,
+          doNotContact: lead.doNotContact,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'Could not persist lead.');
+      }
+
+      const data = await response.json();
+      if (data?.lead?.id && data.lead.id !== lead.id) {
+        setLeads((current) => current.map((item) => item.id === lead.id ? data.lead : item));
+        setSelected((current) => current?.id === lead.id ? data.lead : current);
+      }
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : 'Could not persist lead.');
+    } finally {
+      setSyncing(false);
+    }
   }
 
   function addManualLead() {
@@ -711,7 +757,7 @@ export default function Home() {
       notes: '',
       doNotContact: false,
     };
-    addLead(lead);
+    void addLead(lead);
     setSelected(lead);
   }
 
