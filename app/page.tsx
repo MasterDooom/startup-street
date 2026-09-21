@@ -131,7 +131,7 @@ type AuditResult = {
   };
 };
 
-const STORAGE_KEY = 'startup-street-leads-v2';
+const STORAGE_KEY = 'startup-street-leads-v3';
 const ACTIVE_NICHE_KEY = 'startup-street-niche-v1';
 
 const nicheOptions = [
@@ -482,6 +482,7 @@ function problemSolution(finding: Finding | undefined) {
 export default function Home() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [ready, setReady] = useState(false);
+  const [storageMode, setStorageMode] = useState<'database' | 'local'>('local');
   const [dataError, setDataError] = useState('');
   const [activeView, setActiveView] = useState<'dashboard' | 'leads' | 'audits' | 'outreach' | 'sources'>('dashboard');
   const [activeNiche, setActiveNiche] = useState('interior');
@@ -528,35 +529,54 @@ export default function Home() {
       // Ignore unavailable storage.
     }
 
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setLeads(parsed);
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/leads?limit=500', { cache: 'no-store' });
+        const data = await response.json();
+        if (!cancelled && response.ok && data.configured && Array.isArray(data.leads)) {
+          setLeads(data.leads as Lead[]);
+          setStorageMode('database');
+          setReady(true);
+          return;
+        }
+      } catch {
+        // Fall back to local browser storage when PostgreSQL is not configured.
+      }
+
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setLeads(Array.isArray(parsed) ? parsed : (demoMode ? sampleLeads : []));
         } else {
           setLeads(demoMode ? sampleLeads : []);
         }
-      } else {
+      } catch {
+        setDataError('Saved lead data was invalid. The workspace was reset to an empty live-data state.');
         setLeads(demoMode ? sampleLeads : []);
+      } finally {
+        if (!cancelled) {
+          setStorageMode('local');
+          setReady(true);
+        }
       }
-    } catch {
-      setDataError('Saved lead data was invalid. The workspace was reset to an empty live-data state.');
-      setLeads(demoMode ? sampleLeads : []);
-    } finally {
-      setReady(true);
-    }
-  }, []);
+    })();
+
+    return () => { cancelled = true; };
+  }, []);;
 
   useEffect(() => {
     if (!ready) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
       window.localStorage.setItem(ACTIVE_NICHE_KEY, activeNiche);
+      if (storageMode === 'local') {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(leads));
+      }
     } catch {
       setDataError('Your browser blocked local storage. Export your leads before closing this tab.');
     }
-  }, [leads, activeNiche, ready]);
+  }, [leads, activeNiche, ready, storageMode]);;
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase();
