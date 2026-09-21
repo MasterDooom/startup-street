@@ -2077,31 +2077,53 @@ export default function Home() {
                   <option value="without">No website</option>
                 </select>
               </label>
-              <button className="primary-btn" onClick={runDiscovery} disabled={discoverLoading}><Radar size={15} /> {discoverLoading ? 'Searching' : 'Search public businesses'}</button>
+              <label>Results
+                <select value={discoveryResultLimit} onChange={(event) => setDiscoveryResultLimit(Number(event.target.value))}>
+                  {[10, 20, 50].map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <button className="primary-btn" onClick={runDiscovery} disabled={discoverLoading}><Radar size={15} /> {discoverLoading ? 'Discovering + analyzing' : 'Find + rank leads'}</button>
             </div>
 
             {discoveryMessage && <div className="inline-message"><Activity size={14} /> {discoveryMessage}</div>}
 
+            {discoveryResults.length > 0 && (
+              <div className="action-row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+                <span className="source-chip">{discoveryResults.length} ranked by client opportunity</span>
+                <button className="outline-btn small" onClick={() => deepAnalyzeTopResults(10)} disabled={deepAnalyzing}>
+                  <FileSearch size={14} /> {deepAnalyzing ? 'Deep analyzing…' : 'Deep-analyze top 10'}
+                </button>
+              </div>
+            )}
+
             <div className="discovery-list">
               {discoveryResults.map((lead) => {
                 const already = leads.some((item) => item.name.toLowerCase() === lead.name.toLowerCase() && item.city.toLowerCase() === lead.city.toLowerCase());
+                const strongest = lead.findings.find((item) => item.severity === 'critical' || item.severity === 'high');
+                const growth = lead.growthScore ?? lead.intelligence?.components?.find((item) => item.key === 'growth')?.value ?? 0;
+                const fit = lead.agencyFitScore ?? lead.intelligence?.components?.find((item) => item.key === 'fit')?.value ?? 0;
                 return (
                   <div className="discovery-result" key={lead.id}>
                     <div className="discovery-logo">{lead.name.slice(0,1)}</div>
                     <div className="discovery-main">
                       <strong>{lead.name}</strong>
                       <span>{lead.city} · {lead.type}</span>
-                      <p>{lead.website ? 'Website found — audit before pitching.' : 'No website URI returned — high-priority website gap candidate.'}</p>
+                      <p>{strongest?.title || lead.opportunity || (lead.website ? 'Website found — deepen the audit.' : 'No owned website returned by provider.')}</p>
+                      <div className="queue-tags">
+                        <span>Growth {growth}/25</span>
+                        <span>Fit {fit}/15</span>
+                        <span>{lead.recommendedService || 'Offer pending'}</span>
+                      </div>
                     </div>
                     <ScoreBadge score={lead.score} compact />
-                    <button className="outline-btn small" disabled={already} onClick={() => { addLead({ ...lead, doNotContact: false }); setSelected(lead); }}>{already ? 'Added' : 'Add'}</button>
+                    <button className="outline-btn small" disabled={already} onClick={() => { void addLead({ ...lead, doNotContact: false }); setSelected(lead); }}>{already ? 'Added' : 'Add'}</button>
                   </div>
                 );
               })}
-              {!discoveryResults.length && !discoverLoading && <EmptyState title="No live results yet" body="Search for a niche + city, or configure Google Places API in the server environment." />}
+              {!discoveryResults.length && !discoverLoading && <EmptyState title="No live results yet" body="Search for a niche + city, then Startup Street will rank the returned businesses by client opportunity. Configure Google or use the OSM fallback." />}
             </div>
 
-            <div className="modal-footer"><ShieldCheck size={14} /> Source data is used for discovery only. Verify the business and website before outreach.</div>
+            <div className="modal-footer"><ShieldCheck size={14} /> Discovery ranks public businesses using evidence-backed heuristics first. Deep analysis adds real website findings for the highest-opportunity candidates before outreach.</div>
           </div>
         </div>
       )}
