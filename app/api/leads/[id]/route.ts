@@ -55,7 +55,20 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const input = parsed.data;
   const data: any = {};
-  for (const key of ['status','score','scoreBreakdown','opportunity','recommendedService','notes','doNotContact']) {
+  for (const key of [
+    'status',
+    'score',
+    'scoreBreakdown',
+    'opportunity',
+    'recommendedService',
+    'notes',
+    'doNotContact',
+    'shortlisted',
+    'rejected',
+    'intelligence',
+    'opportunityReasons',
+    'whyNow',
+  ]) {
     if (input[key as keyof typeof input] !== undefined) data[key] = input[key as keyof typeof input];
   }
   if (input.website !== undefined) {
@@ -97,6 +110,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         create: { businessId: row.id, reason: 'User-suppressed lead' },
         update: {},
       });
+    } else if (input.doNotContact === false) {
+      await tx.suppressionRecord.deleteMany({ where: { businessId: row.id } });
     }
 
     if (input.audit) {
