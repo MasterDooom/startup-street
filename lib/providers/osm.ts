@@ -3,6 +3,16 @@ import type { LeadProvider, NormalizedLead } from './types';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
+let lastNominatimAt = 0;
+const geocodeCache = new Map<string, { lat: number; lon: number; expiresAt: number }>();
+
+async function respectNominatimRateLimit() {
+  const elapsed = Date.now() - lastNominatimAt;
+  const wait = Math.max(0, 1100 - elapsed);
+  if (wait) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastNominatimAt = Date.now();
+}
+
 function headers() {
   return {
     'User-Agent': 'StartupStreet/2.0 (+https://github.com/MasterDooom/startup-street)',
@@ -22,17 +32,26 @@ function inferTags(query: string) {
 export const osmProvider: LeadProvider = {
   id: 'openstreetmap',
   async search({ query, city = 'India', pageSize = 20 }) {
-    const geocode = new URL(NOMINATIM_URL);
-    geocode.searchParams.set('q', city + ', India');
-    geocode.searchParams.set('format', 'jsonv2');
-    geocode.searchParams.set('limit', '1');
+    const cacheKey = city.trim().toLowerCase();
+    const cached = geocodeCache.get(cacheKey);
+    let lat = cached?.expiresAt && cached.expiresAt > Date.now() ? cached.lat : NaN;
+    let lon = cached?.expiresAt && cached.expiresAt > Date.now() ? cached.lon : NaN;
 
-    const geoResponse = await fetch(geocode, { headers: headers(), cache: 'no-store' });
-    if (!geoResponse.ok) throw new Error('OpenStreetMap geocoding failed (' + geoResponse.status + ').');
-    const geo = (await geoResponse.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>;
-    const lat = Number(geo[0]?.lat);
-    const lon = Number(geo[0]?.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Could not locate ' + city + '.');
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      const geocode = new URL(NOMINATIM_URL);
+      geocode.searchParams.set('q', city + ', India');
+      geocode.searchParams.set('format', 'jsonv2');
+      geocode.searchParams.set('limit', '1');
+
+      await respectNominatimRateLimit();
+      const geoResponse = await fetch(geocode, { headers: headers(), cache: 'no-store' });
+      if (!geoResponse.ok) throw new Error('OpenStreetMap geocoding failed (' + geoResponse.status + ').');
+      const geo = (await geoResponse.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>;
+      lat = Number(geo[0]?.lat);
+      lon = Number(geo[0]?.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('Could not locate ' + city + '.');
+      geocodeCache.set(cacheKey, { lat, lon, expiresAt: Date.now() + 10 * 60 * 1000 });
+    }
 
     const tags = inferTags(query);
     const clauses = tags.map((tag) => tag === 'name'
