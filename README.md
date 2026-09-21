@@ -54,6 +54,7 @@ Without the key, outreach generation falls back to a deterministic template base
 - static public website audit route
 - evidence-backed finding display
 - rule-based or optional AI outreach generation
+- optional live web research via the OpenAI Responses web-search tool
 - human approval before outreach
 - responsive SaaS-style command center
 
