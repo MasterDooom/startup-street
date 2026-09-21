@@ -105,7 +105,7 @@ export async function POST(request: Request) {
                 signal: signal.signal,
                 evidence: signal.evidence,
                 confidence: signal.confidence,
-                kind: signal.kind === 'inference' ? 'inference' : 'observed',
+                kind: 'kind' in signal && signal.kind === 'inference' ? 'inference' : 'observed',
               },
             });
           }
