@@ -1,91 +1,124 @@
-# Startup Street
+# Startup Street 2.0
 
-Startup Street is an evidence-first client acquisition workspace for a web development agency.
+Startup Street is an evidence-first, India-first client acquisition workspace for web agencies.
 
-The product loop is:
+**Core loop:** Discover → Deduplicate → Enrich → Audit → Evidence → Score → Verify → Personalize → Approve → Track.
 
-**DISCOVER → AUDIT → SCORE → DIAGNOSE → PERSONALIZE → CONTACT → TRACK**
+## Live providers
 
-## Initial niche wedge
+### Google Places API (New)
+Configure:
 
-The workspace currently defaults to **Interior & renovation** because it combines:
+`GOOGLE_MAPS_API_KEY`
 
-- high-value project economics
-- strongly visual proof/portfolio requirements
-- local discovery
-- clear enquiry/consultation CTAs
-- an obvious before/after website story
+The key is server-side only. Restrict it in Google Cloud and enable Places API (New).
 
-The app can switch to home services, solar installers, restaurants/cafés, and private clinics.
+### OpenStreetMap fallback
+When Google is not configured, discovery can use OpenStreetMap + Nominatim + Overpass through the provider selector:
 
-## Live discovery
+- Auto (Google → OSM)
+- Google Places
+- OpenStreetMap
 
-The app supports Google Places API (New) through the environment variable `GOOGLE_MAPS_API_KEY`.
+OSM coverage is not complete and should be treated as a discovery source, not a source of truth.
 
-The key is read only on the server. Restrict the key in Google Cloud and enable Places API (New).
+## AI provider
 
-Without a key, the app does not fabricate discovery results. Use CSV import instead.
+The app now uses a configurable OpenAI-compatible Responses endpoint:
 
-## Optional AI outreach
+`AI_BASE_URL=https://api.openai.com/v1`
+`AI_API_KEY=...`
+`AI_MODEL=...`
 
-Set `OPENAI_API_KEY` and optionally `OPENAI_MODEL=gpt-5.6-luna`.
+Do not hard-code a model name. The Settings workflow should test the configured provider before using it.
 
-Without the key, outreach generation falls back to a deterministic template based on verified audit findings.
+## Persistence
+
+The repository contains a PostgreSQL/Prisma schema and leads API.
+
+Configure:
+
+`DATABASE_URL=postgresql://...`
+
+When configured, Startup Street loads and persists leads through PostgreSQL. Without it, local browser storage is used explicitly as a development fallback; no fake leads are inserted unless `NEXT_PUBLIC_DEMO_MODE=true`.
+
+Run migrations with:
+
+`npx prisma migrate dev --name init`
+
+and generate the client with:
+
+`npx prisma generate`
 
 ## Local development
 
-1. `npm install`
-2. copy `.env.example` to `.env.local`
-3. add any provider keys you have
-4. `npm run dev`
-5. open `http://localhost:3000`
+1. Use Node 20+.
+2. `npm install`
+3. Copy `.env.example` to `.env.local`.
+4. Configure the providers you need.
+5. `npm run dev`
+6. Open `http://localhost:3000`.
 
-## What is real vs planned
+Useful checks:
 
-### Working in the MVP
+`npm run typecheck`
+`npm run lint`
+`npm run build`
 
-- persistent local lead storage
-- safe localStorage initialization
-- CSV import/export
-- manual lead creation
-- lead scoring UI
-- lead pipeline/statuses
-- Google Places API discovery when configured
-- static public website audit route
-- evidence-backed finding display
-- rule-based or optional AI outreach generation
-- optional live web research via the OpenAI Responses web-search tool
-- human approval before outreach
-- responsive SaaS-style command center
+## Real vs demo
 
-### Planned
+Production discovery does **not** seed businesses.
 
-- persistent database (Postgres/SQLite)
-- browser/Lighthouse visual audit
-- deeper public-source research and enrichment
-- automated follow-up scheduling
-- compliant email/WhatsApp/CRM integrations
+Demo businesses are allowed only when:
 
-## Research used for the initial niche strategy
+`NEXT_PUBLIC_DEMO_MODE=true`
 
-BrightLocal: https://www.brightlocal.com/research/consumer-search-behavior-channels/
+They are clearly development data and are never evidence for outreach.
 
-BrightLocal: https://www.brightlocal.com/research/local-consumer-review-survey/
+## Website audit
 
-IMARC: https://www.imarcgroup.com/interior-design-market-india
+The audit route performs real public HTTP checks and records evidence such as:
 
-Redseer: https://redseer.com/articles/tapping-into-the-everyday-instant-home-services-and-the-next-habit-loop/
+- reachability
+- HTTP status
+- title
+- viewport
+- headings
+- content density
+- contact/WhatsApp/booking/order signals
+- local map/hours signals
+- PDF/image menu signals
+- social links
+- lightweight broken-link checks
 
-Google Places API: https://developers.google.com/maps/documentation/places/web-service/text-search
+The audit includes network safety checks to block local/private destinations and unsafe redirects.
 
-OpenAI Responses API: https://platform.openai.com/docs/quickstart/make-your-first-api-request
+A static HTML audit cannot reliably judge visual design or real mobile rendering. Browser/Lighthouse auditing remains a separate layer.
 
-## Safety / outreach rule
+## Safety
 
-A lead is not a prospect just because the system found it.
+The intended workflow is:
 
-The workflow requires:
+**source → evidence → human verification → personalized draft → human approval → contact**
 
-**source → evidence → human verification → personalized message → human approval**
+Do not bypass CAPTCHAs, provider limits, robots/crawl controls, or collect private personal information.
 
-Do not bypass provider terms, CAPTCHAs, or collect private personal information.
+## Research references
+
+Google Places API:
+https://developers.google.com/maps/documentation/places/web-service
+
+OpenStreetMap:
+https://www.openstreetmap.org/
+https://operations.osmfoundation.org/policies/nominatim/
+
+Open Government Data:
+https://data.gov.in/
+
+API Setu:
+https://apisetu.gov.in/
+
+OpenAI API:
+https://platform.openai.com/docs/
+
+The repository should verify current documentation and licensing before adding additional providers.
