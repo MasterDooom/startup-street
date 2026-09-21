@@ -56,7 +56,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
           businessId: updated.businessId,
           channel: (await prisma.campaign.findUnique({ where: { id: params.id }, select: { channel: true } }))?.channel ?? 'email',
           draft: updated.draft ?? '',
-          evidenceUsed: updated.evidenceUsed,
+          evidenceUsed: updated.evidenceUsed ?? undefined,
           generatedBy: 'campaign',
           approved: true,
           approvedAt: new Date(),
