@@ -1024,57 +1024,17 @@ export default function Home() {
       if (!response.ok) throw new Error(data?.error || 'Discovery failed.');
 
       const rawResults = Array.isArray(data.leads) ? (data.leads as Lead[]) : [];
-      if (!rawResults.length) {
-        setDiscoveryMessage('No provider results returned.');
-        return;
-      }
-
-      const analysisResponse = await fetch('/api/intelligence/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leads: rawResults }),
-      });
-      const analysisData = await analysisResponse.json();
-      if (!analysisResponse.ok) throw new Error(analysisData?.error || 'Lead analysis failed.');
-
-      const analysisById = new Map(
-        (analysisData.results ?? []).map((item: any) => [item.id, item.result]),
-      );
-
-      const analyzed = rawResults.map((lead) => {
-        const result = analysisById.get(lead.id);
-        if (!result) return lead;
-
-        return {
-          ...lead,
-          score: result.score,
-          scoreBreakdown: Object.fromEntries(result.components.map((item: any) => [item.key, item.value])),
-          growthScore: result.components.find((item: any) => item.key === 'growth')?.value ?? 0,
-          websiteOpportunityScore: result.components.find((item: any) => item.key === 'website')?.value ?? 0,
-          buyingSignalScore: result.components.find((item: any) => item.key === 'buying')?.value ?? 0,
-          agencyFitScore: result.components.find((item: any) => item.key === 'fit')?.value ?? 0,
-          contactabilityScore: result.components.find((item: any) => item.key === 'contact')?.value ?? 0,
-          dataConfidenceScore: result.components.find((item: any) => item.key === 'confidence')?.value ?? 0,
-          intelligence: result,
-          opportunity: result.opportunity,
-          recommendedService: result.recommendedService,
-          priceRange: result.priceRange,
-          evidence: result.reasons?.[0] || lead.evidence,
-          status: lead.status === 'New' ? 'Researched' : lead.status,
-        } satisfies Lead;
-      });
-
-      const results = analyzed
+      const results = rawResults
         .filter((lead) => lead.score >= discoveryMinScore)
         .filter((lead) => discoveryWebsite === 'any' || (discoveryWebsite === 'with' ? Boolean(lead.website) : !lead.website))
-        .filter((lead) => (lead.growthScore ?? 0) >= discoveryMinGrowth)
+        .filter((lead) => (lead.growthScore ?? lead.intelligence?.components?.find?.((item: any) => item.key === 'growth')?.value ?? 0) >= discoveryMinGrowth)
         .sort((a, b) => b.score - a.score);
 
       setDiscoveryResults(results);
       setDiscoveryMessage(
         results.length
-          ? results.length + ' businesses analyzed and ranked by client opportunity.'
-          : 'No businesses matched those filters after intelligence analysis.',
+          ? results.length + ' businesses found and ranked by client opportunity.'
+          : 'No businesses matched those filters.',
       );
     } catch (error) {
       setDiscoveryMessage(error instanceof Error ? error.message : 'Discovery failed.');
@@ -1082,7 +1042,6 @@ export default function Home() {
       setDiscoverLoading(false);
     }
   }
-
   async function deepAnalyzeTopResults(limit = 10) {
     if (!discoveryResults.length || deepAnalyzing) return;
 
