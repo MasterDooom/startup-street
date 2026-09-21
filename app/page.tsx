@@ -400,14 +400,14 @@ function statusTone(status: Status) {
 function formatAgo(date: string) {
   const delta = Math.max(0, Date.now() - new Date(date).getTime());
   const mins = Math.round(delta / 60000);
-  if (mins < 60) return \`\${mins}m ago\`;
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.round(mins / 60);
-  if (hours < 24) return \`\${hours}h ago\`;
-  return \`\${Math.round(hours / 24)}d ago\`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
 }
 
 function escapeCsv(value: unknown) {
-  return \`"\${String(value ?? '').replace(/"/g, '""')}"\`;
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 
 function parseCsv(text: string) {
@@ -454,7 +454,7 @@ function parseCsv(text: string) {
 
 function makeLead(raw: Record<string, string>, index: number): Lead {
   return {
-    id: raw.id || \`csv-\${Date.now()}-\${index}\`,
+    id: raw.id || `csv-${Date.now()}-${index}`,
     name: raw.name || raw['business name'] || 'Unnamed business',
     city: raw.city || '',
     state: raw.state || '',
@@ -504,7 +504,7 @@ function scoreFromAudit(existing: Lead, audit: AuditResult) {
 }
 
 function recommendedOffer(lead: Lead) {
-  const text = \`\${lead.category} \${lead.type} \${lead.opportunity}\`.toLowerCase();
+  const text = `${lead.category} ${lead.type} ${lead.opportunity}`.toLowerCase();
   if (text.includes('solar')) return 'Solar lead-generation website';
   if (text.includes('interior') || text.includes('renovation') || text.includes('design')) return 'Portfolio + enquiry website';
   if (text.includes('clinic')) return 'Trust + booking website';
@@ -651,7 +651,7 @@ export default function Home() {
       .filter((lead) => statusFilter === 'All' || lead.status === statusFilter)
       .filter((lead) => {
         if (!normalized) return true;
-        return \`\${lead.name} \${lead.city} \${lead.state} \${lead.category} \${lead.type} \${lead.opportunity}\`.toLowerCase().includes(normalized);
+        return `${lead.name} ${lead.city} ${lead.state} ${lead.category} ${lead.type} ${lead.opportunity}`.toLowerCase().includes(normalized);
       })
       .sort((a, b) => b.score - a.score);
   }, [leads, query, statusFilter]);
@@ -806,7 +806,7 @@ export default function Home() {
 
   function addManualLead() {
     const lead: Lead = {
-      id: \`manual-\${Date.now()}\`,
+      id: `manual-${Date.now()}`,
       name: 'New prospect',
       city,
       state: '',
@@ -847,10 +847,10 @@ export default function Home() {
           return makeLead(raw, index);
         });
         setLeads((current) => {
-          const keys = new Set(current.map((lead) => \`\${lead.name.toLowerCase()}|\${lead.city.toLowerCase()}\`));
-          return [...imported.filter((lead) => !keys.has(\`\${lead.name.toLowerCase()}|\${lead.city.toLowerCase()}\`)), ...current];
+          const keys = new Set(current.map((lead) => `${lead.name.toLowerCase()}|${lead.city.toLowerCase()}`));
+          return [...imported.filter((lead) => !keys.has(`${lead.name.toLowerCase()}|${lead.city.toLowerCase()}`)), ...current];
         });
-        setDataError(\`\${imported.length} rows imported.\`);
+        setDataError(`${imported.length} rows imported.`);
       } catch (error) {
         setDataError(error instanceof Error ? error.message : 'Could not read that CSV.');
       } finally {
@@ -1023,7 +1023,7 @@ export default function Home() {
         .filter((lead) => (lead.intelligence?.components?.find?.((item: any) => item.key === 'growth')?.value ?? lead.growthScore ?? 0) >= discoveryMinGrowth)
         .sort((a, b) => b.score - a.score);
       setDiscoveryResults(results);
-      setDiscoveryMessage(results.length ? \`\${results.length} public business records found. Audit before outreach.\` : 'No results returned.');
+      setDiscoveryMessage(results.length ? `${results.length} public business records found. Audit before outreach.` : 'No results returned.');
     } catch (error) {
       setDiscoveryMessage(error instanceof Error ? error.message : 'Discovery failed.');
     } finally {
@@ -1116,7 +1116,7 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Outreach generation failed.');
       setOutreachText(data.message || '');
-      setOutreachMode(data.mode === 'ai' ? \`AI · \${data.model}\` : 'Verified finding template');
+      setOutreachMode(data.mode === 'ai' ? `AI · ${data.model}` : 'Verified finding template');
     } catch (error) {
       setOutreachText('');
       setOutreachMode(error instanceof Error ? error.message : 'Outreach generation failed.');
@@ -1250,7 +1250,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <aside className={\`sidebar \${mobileSidebar ? 'sidebar-open' : ''}\`}>
+      <aside className={`sidebar ${mobileSidebar ? 'sidebar-open' : ''}`}>
         <div className="brand-row">
           <div className="brand-mark"><Radar size={19} /></div>
           <div>
@@ -1298,7 +1298,7 @@ export default function Home() {
           <div className="mini-stat">
             <span>Today's target</span>
             <strong>10 conversations</strong>
-            <div className="mini-track"><i style={{ width: \`\${Math.min(100, (stats.contact / 10) * 100)}%\` }} /></div>
+            <div className="mini-track"><i style={{ width: `${Math.min(100, (stats.contact / 10) * 100)}%` }} /></div>
             <small>{Math.min(10, stats.contact)} / 10 active leads</small>
           </div>
           <div className="privacy-note"><ShieldCheck size={14} /> Evidence-first. Human-approved.</div>
@@ -1390,7 +1390,7 @@ export default function Home() {
                           <div className="queue-title"><strong>{lead.name}</strong><span>{lead.city}</span></div>
                           <div className="queue-detail">{finding?.title || lead.opportunity}</div>
                           <div className="queue-tags">
-                            <span className={\`priority-pill \${p.className}\`}>{p.label}</span>
+                            <span className={`priority-pill ${p.className}`}>{p.label}</span>
                             <span>{lead.recommendedService || recommendedOffer(lead)}</span>
                           </div>
                         </div>
@@ -1471,12 +1471,12 @@ export default function Home() {
                           <td>
                             <div className="lead-business">
                               <div className="avatar-block">{lead.name.slice(0, 1).toUpperCase()}</div>
-                              <div><strong>{lead.name}</strong><span>{lead.city}{lead.state ? \`, \${lead.state}\` : ''} · {lead.type}</span></div>
+                              <div><strong>{lead.name}</strong><span>{lead.city}{lead.state ? `, ${lead.state}` : ''} · {lead.type}</span></div>
                             </div>
                           </td>
                           <td><div className="table-signal"><strong>{finding?.title || lead.opportunity}</strong><span>{lead.evidence}</span></div></td>
                           <td><ScoreBadge score={lead.score} /></td>
-                          <td><span className={\`status-pill \${statusTone(lead.status)}\`}><i />{lead.status}</span></td>
+                          <td><span className={`status-pill ${statusTone(lead.status)}`}><i />{lead.status}</span></td>
                           <td><span className="source-chip">{lead.source}</span></td>
                           <td><ChevronRight size={15} className="muted-icon" /></td>
                         </tr>
@@ -1794,14 +1794,14 @@ export default function Home() {
               <div>
                 <span className="section-kicker">LEAD INTELLIGENCE</span>
                 <h2>{selected.name}</h2>
-                <p><MapPin size={13} /> {selected.city || 'City missing'}{selected.state ? \`, \${selected.state}\` : ''} · {selected.type}</p>
+                <p><MapPin size={13} /> {selected.city || 'City missing'}{selected.state ? `, ${selected.state}` : ''} · {selected.type}</p>
               </div>
               <button className="circle-btn" onClick={() => setSelected(null)}><X size={16} /></button>
             </div>
 
             <div className="drawer-score-card">
               <div><span>Opportunity score</span><strong>{selected.score}<small>/100</small></strong></div>
-              <div className={\`priority-pill \${priority(selected.score).className}\`}>{priority(selected.score).label}</div>
+              <div className={`priority-pill ${priority(selected.score).className}`}>{priority(selected.score).label}</div>
             </div>
 
             <div className="drawer-block">
@@ -2003,7 +2003,7 @@ function FindingCard({ finding, compact }: { finding: Finding; compact?: boolean
   const color = finding.severity === 'critical' ? 'finding-critical' : finding.severity === 'high' ? 'finding-high' : finding.severity === 'medium' ? 'finding-medium' : 'finding-low';
   return (
     <div className={compact ? 'finding-card compact' : 'finding-card'}>
-      <div className="finding-top"><span className={\`severity-pill \${color}\`}>{finding.severity}</span><span>{finding.confidence} confidence</span></div>
+      <div className="finding-top"><span className={`severity-pill ${color}`}>{finding.severity}</span><span>{finding.confidence} confidence</span></div>
       <strong>{finding.title}</strong>
       <p>{finding.problem}</p>
       {!compact && <><div className="evidence-line"><ShieldCheck size={12} /> {finding.evidence}</div><div className="fix-line"><Zap size={12} /> {finding.fix}</div></>}
@@ -2020,7 +2020,7 @@ function ScoreBars({ breakdown }: { breakdown: ScoreBreakdown }) {
     ['Contactability', breakdown.contact ?? breakdown.contactability ?? 0, 10],
     ['Data confidence', breakdown.confidence ?? 0, 5],
   ];
-  return <div className="score-bars">{items.map(([label, value, max]) => <div key={String(label)}><div className="score-bar-head"><span>{label}</span><b>{value}/{max}</b></div><div className="bar-track"><i style={{ width: \`\${Math.min(100, (Number(value) / Number(max)) * 100)}%\` }} /></div></div>)}</div>;
+  return <div className="score-bars">{items.map(([label, value, max]) => <div key={String(label)}><div className="score-bar-head"><span>{label}</span><b>{value}/{max}</b></div><div className="bar-track"><i style={{ width: `${Math.min(100, (Number(value) / Number(max)) * 100)}%` }} /></div></div>)}</div>;
 }
 
 function InfoCell({ icon: Icon, label, value, href }: { icon: typeof Globe; label: string; value: string; href?: string }) {
