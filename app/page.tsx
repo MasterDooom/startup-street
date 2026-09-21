@@ -547,6 +547,9 @@ export default function Home() {
   const [discoveryQuery, setDiscoveryQuery] = useState('interior designers and renovation companies');
   const [discoveryResults, setDiscoveryResults] = useState<Lead[]>([]);
   const [discoveryProvider, setDiscoveryProvider] = useState<'auto' | 'google' | 'osm'>('auto');
+  const [discoveryMinScore, setDiscoveryMinScore] = useState(0);
+  const [discoveryMinGrowth, setDiscoveryMinGrowth] = useState(0);
+  const [discoveryWebsite, setDiscoveryWebsite] = useState<'any' | 'with' | 'without'>('any');
   const [discoveryMessage, setDiscoveryMessage] = useState('');
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [auditUrl, setAuditUrl] = useState('');
@@ -963,7 +966,12 @@ export default function Home() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Discovery failed.');
 
-      const results = Array.isArray(data.leads) ? (data.leads as Lead[]).sort((a, b) => b.score - a.score) : [];
+      const rawResults = Array.isArray(data.leads) ? (data.leads as Lead[]) : [];
+      const results = rawResults
+        .filter((lead) => lead.score >= discoveryMinScore)
+        .filter((lead) => discoveryWebsite === 'any' || (discoveryWebsite === 'with' ? Boolean(lead.website) : !lead.website))
+        .filter((lead) => (lead.intelligence?.components?.find?.((item: any) => item.key === 'growth')?.value ?? lead.growthScore ?? 0) >= discoveryMinGrowth)
+        .sort((a, b) => b.score - a.score);
       setDiscoveryResults(results);
       setDiscoveryMessage(results.length ? \`\${results.length} public business records found. Audit before outreach.\` : 'No results returned.');
     } catch (error) {
@@ -1859,6 +1867,15 @@ export default function Home() {
                   <option value="auto">Auto (Google → OSM)</option>
                   <option value="google">Google Places</option>
                   <option value="osm">OpenStreetMap</option>
+                </select>
+              </label>
+              <label>Min opportunity<input type="number" min="0" max="100" value={discoveryMinScore} onChange={(event) => setDiscoveryMinScore(Number(event.target.value) || 0)} /></label>
+              <label>Min growth<input type="number" min="0" max="25" value={discoveryMinGrowth} onChange={(event) => setDiscoveryMinGrowth(Number(event.target.value) || 0)} /></label>
+              <label>Website
+                <select value={discoveryWebsite} onChange={(event) => setDiscoveryWebsite(event.target.value as typeof discoveryWebsite)}>
+                  <option value="any">Any</option>
+                  <option value="with">Has website</option>
+                  <option value="without">No website</option>
                 </select>
               </label>
               <button className="primary-btn" onClick={runDiscovery} disabled={discoverLoading}><Radar size={15} /> {discoverLoading ? 'Searching' : 'Search public businesses'}</button>
