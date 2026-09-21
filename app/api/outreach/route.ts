@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const lead = body?.lead;
+    const agency = body?.agencyProfile || {};
     const channel = ['instagram', 'email', 'whatsapp', 'followup'].includes(body?.channel) ? body.channel : 'instagram';
 
     if (!lead?.name) return NextResponse.json({ error: 'Lead data is required.' }, { status: 400 });
@@ -57,6 +58,10 @@ Website: ${lead.website || 'none'}
 Evidence: ${lead.evidence || ''}
 Verified findings: ${JSON.stringify(lead.findings || []).slice(0, 7000)}
 Recommended service: ${lead.recommendedService || lead.opportunity || ''}
+Agency: ${agency.name || 'Startup Street'}
+Agency description: ${agency.description || ''}
+Agency services: ${Array.isArray(agency.services) ? agency.services.join(', ') : ''}
+Agency differentiators: ${Array.isArray(agency.differentiators) ? agency.differentiators.join(', ') : ''}
 Write the message in a natural, human tone. Keep it concise. Mention one real issue, one relevant fix, and a low-pressure CTA. Do not use emojis unless clearly appropriate. Output only the message.`;
 
     const response = await fetch(`${process.env.AI_BASE_URL || 'https://api.openai.com/v1'}/responses`, {
