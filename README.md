@@ -122,3 +122,8 @@ OpenAI API:
 https://platform.openai.com/docs/
 
 The repository should verify current documentation and licensing before adding additional providers.
+
+
+## UI direction
+
+The interface uses a dark intelligence-workspace aesthetic with restrained liquid-glass motion. The hero uses React Three Fiber for a lightweight WebGL accent; reduced-motion and mobile fallbacks disable the effect. UI component choices should remain performance-conscious and preserve functionality first.
