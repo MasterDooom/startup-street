@@ -122,12 +122,12 @@ export async function POST(request: Request) {
           'places.openingDate',
         ].join(','),
       },
-      body: {
+      body: JSON.stringify({
         textQuery,
         pageSize,
         regionCode: 'IN',
         ...(pageToken ? { pageToken } : {}),
-      },
+      }),
       cache: 'no-store',
     });
 
