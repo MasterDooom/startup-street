@@ -555,6 +555,8 @@ export default function Home() {
   const [discoveryMinScore, setDiscoveryMinScore] = useState(0);
   const [discoveryMinGrowth, setDiscoveryMinGrowth] = useState(0);
   const [discoveryWebsite, setDiscoveryWebsite] = useState<'any' | 'with' | 'without'>('any');
+  const [discoveryResultLimit, setDiscoveryResultLimit] = useState(20);
+  const [deepAnalyzing, setDeepAnalyzing] = useState(false);
   const [discoveryMessage, setDiscoveryMessage] = useState('');
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [auditUrl, setAuditUrl] = useState('');
@@ -1011,19 +1013,69 @@ export default function Home() {
       const response = await fetch('/api/discover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: discoveryQuery, city: discoveryCity, pageSize: 20, provider: discoveryProvider }),
+        body: JSON.stringify({
+          query: discoveryQuery,
+          city: discoveryCity,
+          pageSize: discoveryResultLimit,
+          provider: discoveryProvider,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Discovery failed.');
 
       const rawResults = Array.isArray(data.leads) ? (data.leads as Lead[]) : [];
-      const results = rawResults
+      if (!rawResults.length) {
+        setDiscoveryMessage('No provider results returned.');
+        return;
+      }
+
+      const analysisResponse = await fetch('/api/intelligence/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leads: rawResults }),
+      });
+      const analysisData = await analysisResponse.json();
+      if (!analysisResponse.ok) throw new Error(analysisData?.error || 'Lead analysis failed.');
+
+      const analysisById = new Map(
+        (analysisData.results ?? []).map((item: any) => [item.id, item.result]),
+      );
+
+      const analyzed = rawResults.map((lead) => {
+        const result = analysisById.get(lead.id);
+        if (!result) return lead;
+
+        return {
+          ...lead,
+          score: result.score,
+          scoreBreakdown: Object.fromEntries(result.components.map((item: any) => [item.key, item.value])),
+          growthScore: result.components.find((item: any) => item.key === 'growth')?.value ?? 0,
+          websiteOpportunityScore: result.components.find((item: any) => item.key === 'website')?.value ?? 0,
+          buyingSignalScore: result.components.find((item: any) => item.key === 'buying')?.value ?? 0,
+          agencyFitScore: result.components.find((item: any) => item.key === 'fit')?.value ?? 0,
+          contactabilityScore: result.components.find((item: any) => item.key === 'contact')?.value ?? 0,
+          dataConfidenceScore: result.components.find((item: any) => item.key === 'confidence')?.value ?? 0,
+          intelligence: result,
+          opportunity: result.opportunity,
+          recommendedService: result.recommendedService,
+          priceRange: result.priceRange,
+          evidence: result.reasons?.[0] || lead.evidence,
+          status: lead.status === 'New' ? 'Researched' : lead.status,
+        } satisfies Lead;
+      });
+
+      const results = analyzed
         .filter((lead) => lead.score >= discoveryMinScore)
         .filter((lead) => discoveryWebsite === 'any' || (discoveryWebsite === 'with' ? Boolean(lead.website) : !lead.website))
-        .filter((lead) => (lead.intelligence?.components?.find?.((item: any) => item.key === 'growth')?.value ?? lead.growthScore ?? 0) >= discoveryMinGrowth)
+        .filter((lead) => (lead.growthScore ?? 0) >= discoveryMinGrowth)
         .sort((a, b) => b.score - a.score);
+
       setDiscoveryResults(results);
-      setDiscoveryMessage(results.length ? `${results.length} public business records found. Audit before outreach.` : 'No results returned.');
+      setDiscoveryMessage(
+        results.length
+          ? results.length + ' businesses analyzed and ranked by client opportunity.'
+          : 'No businesses matched those filters after intelligence analysis.',
+      );
     } catch (error) {
       setDiscoveryMessage(error instanceof Error ? error.message : 'Discovery failed.');
     } finally {
@@ -1031,6 +1083,88 @@ export default function Home() {
     }
   }
 
+  async function deepAnalyzeTopResults(limit = 10) {
+    if (!discoveryResults.length || deepAnalyzing) return;
+
+    const candidates = discoveryResults.slice(0, Math.min(limit, discoveryResults.length));
+    setDeepAnalyzing(true);
+    setDiscoveryMessage('Deep-analyzing ' + candidates.length + ' highest-opportunity businesses: website evidence + scoring…');
+
+    try {
+      const enriched: Lead[] = [];
+
+      for (const lead of candidates) {
+        let findings = lead.findings;
+        let metrics: AuditResult['metrics'] | undefined;
+
+        if (lead.website) {
+          try {
+            const auditResponse = await fetch('/api/audit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: lead.website }),
+            });
+            if (auditResponse.ok) {
+              const audit = await auditResponse.json();
+              findings = Array.isArray(audit.findings) ? audit.findings : findings;
+              metrics = audit.metrics;
+            }
+          } catch {
+            // Keep provider-only intelligence when a site cannot be audited.
+          }
+        }
+
+        const analysisResponse = await fetch('/api/intelligence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lead: { ...lead, findings },
+            metrics,
+          }),
+        });
+        const analysisData = await analysisResponse.json();
+
+        if (analysisResponse.ok && analysisData?.result) {
+          const result = analysisData.result;
+          const merged: Lead = {
+            ...lead,
+            findings,
+            score: result.score,
+            scoreBreakdown: Object.fromEntries(result.components.map((item: any) => [item.key, item.value])),
+            growthScore: result.components.find((item: any) => item.key === 'growth')?.value ?? 0,
+            websiteOpportunityScore: result.components.find((item: any) => item.key === 'website')?.value ?? 0,
+            buyingSignalScore: result.components.find((item: any) => item.key === 'buying')?.value ?? 0,
+            agencyFitScore: result.components.find((item: any) => item.key === 'fit')?.value ?? 0,
+            contactabilityScore: result.components.find((item: any) => item.key === 'contact')?.value ?? 0,
+            dataConfidenceScore: result.components.find((item: any) => item.key === 'confidence')?.value ?? 0,
+            intelligence: result,
+            opportunity: result.opportunity,
+            recommendedService: result.recommendedService,
+            priceRange: result.priceRange,
+            evidence: result.reasons?.[0] || lead.evidence,
+            status: lead.status === 'New' ? 'Needs review' : lead.status,
+          };
+          enriched.push(merged);
+        } else {
+          enriched.push(lead);
+        }
+      }
+
+      setDiscoveryResults((current) =>
+        current
+          .map((item) => enriched.find((candidate) => candidate.id === item.id) ?? item)
+          .sort((a, b) => b.score - a.score),
+      );
+
+      setDiscoveryMessage(
+        'Deep analysis complete. ' + candidates.length + ' top businesses now have website evidence where publicly reachable.',
+      );
+    } catch (error) {
+      setDiscoveryMessage(error instanceof Error ? error.message : 'Deep analysis failed.');
+    } finally {
+      setDeepAnalyzing(false);
+    }
+  }
   async function runAudit(targetLead?: Lead) {
     const url = targetLead?.website || auditUrl;
     if (!url) {
