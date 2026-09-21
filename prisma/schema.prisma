@@ -23,44 +23,90 @@ enum LeadStatus {
   DoNotContact
 }
 
+enum CampaignStatus {
+  Draft
+  Generating
+  Review
+  Active
+  Paused
+  Completed
+  Cancelled
+}
+
+enum CampaignRecipientStatus {
+  Queued
+  Drafted
+  Approved
+  Contacted
+  Replied
+  Interested
+  MeetingBooked
+  Won
+  Lost
+  Suppressed
+}
+
 model Business {
-  id               String       @id @default(cuid())
-  name             String
-  normalizedName   String
-  category         String?
-  type             String?
-  address          String?
-  city             String
-  state            String?
-  postalCode       String?
-  website          String?
-  normalizedDomain String?
-  phone            String?
-  normalizedPhone  String?
-  mapsUrl          String?
-  status           LeadStatus   @default(New)
-  score            Int           @default(0)
-  scoreBreakdown   Json?
-  opportunity      String?
-  recommendedService String?
-  priceRange       String?
-  evidence         String?
-  notes            String?
-  doNotContact     Boolean      @default(false)
-  providerRecords  ProviderRecord[]
-  contacts         Contact[]
-  audits           WebsiteAudit[]
-  signals          BuyingSignal[]
-  outreachDrafts   OutreachDraft[]
-  pipelineEvents   PipelineEvent[]
-  suppression      SuppressionRecord?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  id                    String       @id @default(cuid())
+  name                  String
+  normalizedName        String
+  category              String?
+  type                  String?
+  address               String?
+  city                  String
+  state                 String?
+  postalCode            String?
+  website               String?
+  normalizedDomain      String?
+  phone                 String?
+  normalizedPhone       String?
+  mapsUrl               String?
+  status                LeadStatus   @default(New)
+
+  score                 Int           @default(0)
+  scoreBreakdown        Json?
+  growthScore           Int?
+  websiteOpportunityScore Int?
+  buyingSignalScore     Int?
+  agencyFitScore        Int?
+  contactabilityScore   Int?
+  dataConfidenceScore   Int?
+  intelligence          Json?
+  opportunity            String?
+  opportunityReasons     Json?
+  whyNow                Json?
+  recommendedService    String?
+  priceRange            String?
+  evidence              String?
+  notes                 String?
+  shortlisted           Boolean      @default(false)
+  rejected              Boolean      @default(false)
+  doNotContact          Boolean      @default(false)
+
+  providerRecords       ProviderRecord[]
+  contacts              Contact[]
+  audits                WebsiteAudit[]
+  signals               BuyingSignal[]
+  insights              BusinessInsight[]
+  scores                Score[]
+  outreachDrafts        OutreachDraft[]
+  pipelineEvents        PipelineEvent[]
+  notesHistory          Note[]
+  campaignRecipients    CampaignRecipient[]
+  suppression           SuppressionRecord?
+  marketProfileId       String?
+  marketProfile         MarketProfile? @relation(fields: [marketProfileId], references: [id], onDelete: SetNull)
+
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   @@index([city, state])
   @@index([normalizedName, city])
   @@index([normalizedDomain])
   @@index([normalizedPhone])
+  @@index([score])
+  @@index([shortlisted])
+  @@index([marketProfileId])
 }
 
 model ProviderRecord {
@@ -80,15 +126,15 @@ model ProviderRecord {
 }
 
 model Contact {
-  id             String   @id @default(cuid())
-  businessId     String
-  channel        String
-  value          String
+  id              String   @id @default(cuid())
+  businessId      String
+  channel         String
+  value           String
   normalizedValue String?
-  sourceUrl      String?
-  confidence     String   @default("medium")
-  retrievedAt    DateTime @default(now())
-  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sourceUrl       String?
+  confidence      String   @default("medium")
+  retrievedAt     DateTime @default(now())
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId])
   @@index([normalizedValue])
@@ -127,6 +173,94 @@ model BuyingSignal {
   @@index([businessId, observedAt])
 }
 
+model BusinessInsight {
+  id          String   @id @default(cuid())
+  businessId  String
+  kind        String
+  title       String
+  summary     String
+  evidence    String?
+  sourceUrl   String?
+  observedAt  DateTime @default(now())
+  confidence  String   @default("medium")
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, observedAt])
+  @@index([businessId, kind])
+}
+
+model Score {
+  id          String   @id @default(cuid())
+  businessId  String
+  total       Int
+  weights     Json
+  reasons     Json
+  createdAt   DateTime @default(now())
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  components  ScoreComponent[]
+
+  @@index([businessId, createdAt])
+}
+
+model ScoreComponent {
+  id          String   @id @default(cuid())
+  scoreId     String
+  key         String
+  value       Int
+  max         Int
+  evidence    Json?
+  score       Score    @relation(fields: [scoreId], references: [id], onDelete: Cascade)
+
+  @@index([scoreId])
+}
+
+model MarketProfile {
+  id                  String   @id @default(cuid())
+  niche               String
+  country             String   @default("IN")
+  title               String
+  summary             String
+  demandSignals       Json?
+  digitalMaturity     Json?
+  buyingTriggers      Json?
+  commonWeaknesses    Json?
+  salesAngles         Json?
+  sourceLinks         Json?
+  retrievedAt         DateTime @default(now())
+  businesses          Business[]
+
+  @@unique([niche, country])
+}
+
+model AgencyProfile {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  services       Json?
+  pricingRanges  Json?
+  differentiators Json?
+  targetNiches   Json?
+  preferredCities Json?
+  website        String?
+  portfolioItems PortfolioItem[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PortfolioItem {
+  id             String        @id @default(cuid())
+  agencyProfileId String
+  title          String
+  description    String?
+  niche          String?
+  service        String?
+  url            String?
+  imageUrl       String?
+  agencyProfile  AgencyProfile @relation(fields: [agencyProfileId], references: [id], onDelete: Cascade)
+
+  @@index([agencyProfileId])
+}
+
 model OutreachDraft {
   id            String   @id @default(cuid())
   businessId    String
@@ -142,6 +276,48 @@ model OutreachDraft {
   @@index([businessId, generatedAt])
 }
 
+model Campaign {
+  id           String   @id @default(cuid())
+  name         String
+  niche        String?
+  channel      String
+  status       CampaignStatus @default(Draft)
+  filters      Json?
+  total        Int      @default(0)
+  approved     Int      @default(0)
+  contacted    Int      @default(0)
+  replied      Int      @default(0)
+  meetings     Int      @default(0)
+  won          Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  recipients   CampaignRecipient[]
+
+  @@index([status, createdAt])
+}
+
+model CampaignRecipient {
+  id            String                  @id @default(cuid())
+  campaignId    String
+  businessId    String
+  status        CampaignRecipientStatus @default(Queued)
+  draft         String?
+  evidenceUsed  Json?
+  approvedAt    DateTime?
+  contactedAt   DateTime?
+  repliedAt     DateTime?
+  meetingAt     DateTime?
+  wonAt         DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  campaign      Campaign                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  business      Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, businessId])
+  @@index([campaignId, status])
+  @@index([businessId])
+}
+
 model PipelineEvent {
   id          String     @id @default(cuid())
   businessId  String
@@ -154,6 +330,16 @@ model PipelineEvent {
   @@index([businessId, occurredAt])
 }
 
+model Note {
+  id          String   @id @default(cuid())
+  businessId  String
+  body        String
+  createdAt   DateTime @default(now())
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+}
+
 model SuppressionRecord {
   id          String   @id @default(cuid())
   businessId  String   @unique
@@ -163,12 +349,12 @@ model SuppressionRecord {
 }
 
 model ApiUsage {
-  id          String   @id @default(cuid())
-  provider    String
-  operation   String
-  units       Int      @default(1)
-  estimatedCostCents Int?
-  createdAt   DateTime @default(now())
+  id                  String   @id @default(cuid())
+  provider            String
+  operation           String
+  units               Int      @default(1)
+  estimatedCostCents  Int?
+  createdAt           DateTime @default(now())
 
   @@index([provider, createdAt])
 }
