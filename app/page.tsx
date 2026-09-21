@@ -1765,9 +1765,28 @@ export default function Home() {
             )}
 
             <div className="drawer-block">
-              <div className="drawer-block-head"><span className="section-kicker">SCORE BREAKDOWN</span></div>
+              <div className="drawer-block-head"><span className="section-kicker">SCORE BREAKDOWN</span><span className="source-chip">Explainable</span></div>
               <ScoreBars breakdown={selected.scoreBreakdown} />
             </div>
+
+            {selected.intelligence && (
+              <div className="drawer-block">
+                <div className="drawer-block-head"><span className="section-kicker">BUSINESS INTELLIGENCE</span><span className="source-chip">{selected.intelligence.confidence || 'medium'} confidence</span></div>
+                <div className="signal-list">
+                  {(selected.intelligence.whyNow || []).slice(0, 4).map((item) => <Signal key={item} title="Why now" body={item} />)}
+                  {(selected.intelligence.growthSignals || []).slice(0, 4).map((item) => <Signal key={item.signal} title={item.signal} body={item.evidence} />)}
+                  {(selected.intelligence.digitalSignals || []).slice(0, 3).map((item) => <Signal key={item.signal} title={item.signal} body={item.evidence} />)}
+                </div>
+                <div className="action-row">
+                  <button className="outline-btn small" onClick={() => runIntelligence(selected)} disabled={intelligenceLoading}>
+                    <Sparkles size={14} /> {intelligenceLoading ? 'Analyzing…' : 'Re-analyze'}
+                  </button>
+                  <button className={selected.shortlisted ? 'primary-btn small' : 'outline-btn small'} onClick={() => toggleShortlist(selected)}>
+                    <CheckCircle2 size={14} /> {selected.shortlisted ? 'Shortlisted' : 'Shortlist'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="drawer-block">
               <div className="drawer-block-head"><span className="section-kicker">NEXT ACTION</span></div>
@@ -1775,8 +1794,9 @@ export default function Home() {
                 <strong>{selected.findings.length ? 'Generate a message around the strongest verified issue.' : 'Verify the business before writing a message.'}</strong>
                 <p>{bestProblem?.problem || selected.evidence}</p>
                 <div className="action-row">
+                  <button className="outline-btn small" onClick={() => runIntelligence(selected)} disabled={intelligenceLoading}><Sparkles size={14} /> {intelligenceLoading ? 'Analyzing' : 'Analyze intelligence'}</button>
                   {selected.website && <button className="outline-btn small" onClick={() => runAudit(selected)} disabled={auditLoading}><FileSearch size={14} /> {auditLoading ? 'Auditing' : 'Audit site'}</button>}
-                  {!selected.doNotContact && <button className="outline-btn small" onClick={runResearch} disabled={researchLoading}><Globe size={14} /> {researchLoading ? 'Researching' : 'Deep research'}</button>}
+                  {!selected.doNotContact && <button className="outline-btn small" onClick={runResearch} disabled={researchLoading}><Globe size={14} /> {researchLoading ? 'Researching' : 'Deep research'}</button>
                   {!selected.doNotContact && <button className="primary-btn small" onClick={() => document.getElementById('outreach-box')?.scrollIntoView({ behavior: 'smooth' })}><Send size={14} /> Draft outreach</button>}
                 </div>
               </div>
@@ -1810,6 +1830,7 @@ export default function Home() {
             </div>
 
             <div className="drawer-footer">
+              <button className={selected.shortlisted ? 'primary-btn' : 'outline-btn'} onClick={() => toggleShortlist(selected)}><CheckCircle2 size={14} /> {selected.shortlisted ? 'Shortlisted' : 'Shortlist'}</button>
               <button className="danger-btn" onClick={deleteSelected}><Trash2 size={14} /> Delete</button>
               <button className="primary-btn" onClick={() => updateLead(selected.id, { doNotContact: true, status: 'Do not contact' })}><ShieldCheck size={14} /> Suppress lead</button>
             </div>
