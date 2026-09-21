@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 20
       - run: npm install
-      - run: npx prisma validate
+      - run: DATABASE_URL=postgresql://postgres:postgres@localhost:5432/startup_street npx prisma validate
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
