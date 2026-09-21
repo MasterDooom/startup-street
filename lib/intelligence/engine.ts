@@ -104,44 +104,40 @@ function completeness(input: IntelligenceInput) {
 }
 
 function scoreGrowth(input: IntelligenceInput) {
-  let value = 5;
-  const reasons: string[] = [];
+  // This is a proxy for public demand / commercial momentum, not a claim of YoY growth.
+  // Business names, categories, and the presence/absence of a website are not treated as growth evidence.
+  let value = 3;
+  const reasons: string[] = ['No direct year-over-year growth data is available from the discovery payload.'];
   const signals: IntelligenceResult['growthSignals'] = [];
-  const q = text(input);
 
-  if (q.match(/(studio|designer|contractor|agency|clinic|installer|architect|company)/)) {
-    value += 3;
-    reasons.push('Professional service business is a plausible agency buyer.');
-  }
-
-  if ((input.reviewCount ?? 0) >= 500) {
-    value += 4;
-    reasons.push('Large public review base suggests meaningful customer volume.');
-    signals.push({ signal: 'Strong public review footprint', evidence: String(input.reviewCount) + ' public reviews returned by the provider.', kind: 'observed', confidence: 'high' });
+  if ((input.reviewCount ?? 0) >= 1000) {
+    value += 10;
+    reasons.push('Large public review footprint suggests substantial observed customer demand.');
+    signals.push({ signal: 'Very strong public demand footprint', evidence: String(input.reviewCount) + ' public reviews returned by the provider.', kind: 'observed', confidence: 'high' });
+  } else if ((input.reviewCount ?? 0) >= 500) {
+    value += 8;
+    reasons.push('Large public review footprint suggests established customer demand.');
+    signals.push({ signal: 'Strong public demand footprint', evidence: String(input.reviewCount) + ' public reviews returned by the provider.', kind: 'observed', confidence: 'high' });
   } else if ((input.reviewCount ?? 0) >= 100) {
-    value += 3;
-    reasons.push('Material public review footprint suggests established demand.');
-    signals.push({ signal: 'Established public review footprint', evidence: String(input.reviewCount) + ' public reviews returned by the provider.', kind: 'observed', confidence: 'high' });
-  }
-
-  if ((input.rating ?? 0) >= 4.5) {
-    value += 3;
-    reasons.push('High public rating can support a stronger customer-acquisition proposition.');
-    signals.push({ signal: 'Strong public rating', evidence: 'Provider rating: ' + String(input.rating) + '.', kind: 'observed', confidence: 'high' });
-  }
-
-  if (input.website) {
+    value += 5;
+    reasons.push('Material public review footprint is a useful demand proxy.');
+    signals.push({ signal: 'Established public demand footprint', evidence: String(input.reviewCount) + ' public reviews returned by the provider.', kind: 'observed', confidence: 'high' });
+  } else if ((input.reviewCount ?? 0) >= 25) {
     value += 2;
-  } else {
-    value += 3;
-    signals.push({ signal: 'No owned website returned by provider', evidence: 'The discovery provider returned no website URL.', kind: 'observed', confidence: 'medium' });
+    reasons.push('A measurable public review footprint provides some demand evidence.');
   }
 
-  const growthLanguage = /(multiple|branches|expansion|group|projects|studio|premium|solutions|services)/.test(q);
-  if (growthLanguage) {
-    value += 3;
-    reasons.push('Business language suggests multiple services, projects, or a larger operating footprint.');
-    signals.push({ signal: 'Potential operating complexity', evidence: 'Category/name text includes multi-service or project-oriented terms: ' + (input.category || input.type || input.name) + '.', kind: 'inference', confidence: 'low' });
+  if ((input.rating ?? 0) >= 4.7 && (input.reviewCount ?? 0) >= 25) {
+    value += 5;
+    reasons.push('Strong rating plus a material review base strengthens the demand signal.');
+    signals.push({ signal: 'Strong rating + demand footprint', evidence: 'Provider rating: ' + String(input.rating) + ' across ' + String(input.reviewCount) + ' public reviews.', kind: 'observed', confidence: 'high' });
+  } else if ((input.rating ?? 0) >= 4.4 && (input.reviewCount ?? 0) >= 25) {
+    value += 2;
+    reasons.push('Positive rating with a material review base supports the demand proxy.');
+  }
+
+  if (input.businessStatus === 'OPERATIONAL') {
+    value += 1;
   }
 
   return { value: Math.min(25, value), reasons, signals };
