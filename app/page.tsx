@@ -177,6 +177,8 @@ const nicheOptions = [
   },
 ] as const;
 
+const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
 const sampleFindings: Finding[] = [
   {
     id: 'sample-viewport',
@@ -491,6 +493,7 @@ export default function Home() {
   const [discoveryCity, setDiscoveryCity] = useState('Bengaluru');
   const [discoveryQuery, setDiscoveryQuery] = useState('interior designers and renovation companies');
   const [discoveryResults, setDiscoveryResults] = useState<Lead[]>([]);
+  const [discoveryProvider, setDiscoveryProvider] = useState<'auto' | 'google' | 'osm'>('auto');
   const [discoveryMessage, setDiscoveryMessage] = useState('');
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [auditUrl, setAuditUrl] = useState('');
@@ -532,14 +535,14 @@ export default function Home() {
         if (Array.isArray(parsed)) {
           setLeads(parsed);
         } else {
-          setLeads(sampleLeads);
+          setLeads(demoMode ? sampleLeads : []);
         }
       } else {
-        setLeads(sampleLeads);
+        setLeads(demoMode ? sampleLeads : []);
       }
     } catch {
-      setDataError('Saved lead data was invalid, so the workspace was reset to the sample dataset.');
-      setLeads(sampleLeads);
+      setDataError('Saved lead data was invalid. The workspace was reset to an empty live-data state.');
+      setLeads(demoMode ? sampleLeads : []);
     } finally {
       setReady(true);
     }
@@ -716,7 +719,7 @@ export default function Home() {
       const response = await fetch('/api/discover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: discoveryQuery, city: discoveryCity, pageSize: 20 }),
+        body: JSON.stringify({ query: discoveryQuery, city: discoveryCity, pageSize: 20, provider: discoveryProvider }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Discovery failed.');
@@ -1323,6 +1326,13 @@ export default function Home() {
             <div className="discovery-controls">
               <label>Search intent<input value={discoveryQuery} onChange={(event) => setDiscoveryQuery(event.target.value)} /></label>
               <label>City<input value={discoveryCity} onChange={(event) => setDiscoveryCity(event.target.value)} /></label>
+              <label>Provider
+                <select value={discoveryProvider} onChange={(event) => setDiscoveryProvider(event.target.value as 'auto' | 'google' | 'osm')}>
+                  <option value="auto">Auto (Google → OSM)</option>
+                  <option value="google">Google Places</option>
+                  <option value="osm">OpenStreetMap</option>
+                </select>
+              </label>
               <button className="primary-btn" onClick={runDiscovery} disabled={discoverLoading}><Radar size={15} /> {discoverLoading ? 'Searching' : 'Search public businesses'}</button>
             </div>
 
