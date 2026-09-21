@@ -1,0 +1,6 @@
+.campaign-builder{margin-top:24px;padding:20px;border:1px solid #2a2f3a;border-radius:18px;background:rgba(255,255,255,.025)}
+.campaign-builder h3{margin:4px 0 6px;font-size:18px}.campaign-builder p{margin:0;opacity:.7}
+.kanban-grid{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;overflow:auto}.kanban-column{min-height:170px;padding:12px;border:1px solid #2a2f3a;border-radius:16px;background:rgba(255,255,255,.02)}
+.kanban-head{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 12px;border-bottom:1px solid #2a2f3a;margin-bottom:10px}.kanban-head span{font-size:12px;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.06);opacity:.75}
+.kanban-card{width:100%;text-align:left;display:flex;flex-direction:column;gap:4px;padding:12px;margin-bottom:8px;border:1px solid transparent;border-radius:12px;background:rgba(255,255,255,.035);color:inherit}.kanban-card:hover{border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.06)}.kanban-card span{font-size:12px;opacity:.65}
+@media (max-width:1100px){.kanban-grid{grid-template-columns:repeat(3,minmax(220px,1fr))}}@media (max-width:760px){.kanban-grid{grid-template-columns:repeat(2,minmax(220px,1fr))}}
