@@ -501,6 +501,9 @@ export default function Home() {
   const [outreachText, setOutreachText] = useState('');
   const [outreachMode, setOutreachMode] = useState('');
   const [outreachLoading, setOutreachLoading] = useState(false);
+  const [researchText, setResearchText] = useState('');
+  const [researchLoading, setResearchLoading] = useState(false);
+  const [researchMode, setResearchMode] = useState('');
   const [todayLabel, setTodayLabel] = useState('');
   const [mobileSidebar, setMobileSidebar] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -768,6 +771,28 @@ export default function Home() {
       setAuditMessage(error instanceof Error ? error.message : 'Audit failed.');
     } finally {
       setAuditLoading(false);
+    }
+  }
+
+  async function runResearch() {
+    if (!selected || selected.doNotContact) return;
+    setResearchLoading(true);
+    setResearchText('');
+    setResearchMode('');
+    try {
+      const response = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead: selected }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || 'Research failed.');
+      setResearchText(data.text || 'No research output returned.');
+      setResearchMode(data.mode === 'web-search' ? 'Live web research' : 'Research');
+    } catch (error) {
+      setResearchMode(error instanceof Error ? error.message : 'Research failed.');
+    } finally {
+      setResearchLoading(false);
     }
   }
 
@@ -1227,6 +1252,13 @@ export default function Home() {
               </div>
             </div>
 
+            {researchText && (
+              <div className="drawer-block">
+                <div className="drawer-block-head"><span className="section-kicker">LIVE WEB RESEARCH</span><span className="source-chip">{researchMode}</span></div>
+                <div className="research-card"><Sparkles size={14} /><pre>{researchText}</pre></div>
+              </div>
+            )}
+
             <div className="drawer-block">
               <div className="drawer-block-head"><span className="section-kicker">SCORE BREAKDOWN</span></div>
               <ScoreBars breakdown={selected.scoreBreakdown} />
@@ -1239,6 +1271,7 @@ export default function Home() {
                 <p>{bestProblem?.problem || selected.evidence}</p>
                 <div className="action-row">
                   {selected.website && <button className="outline-btn small" onClick={() => runAudit(selected)} disabled={auditLoading}><FileSearch size={14} /> {auditLoading ? 'Auditing' : 'Audit site'}</button>}
+                  {!selected.doNotContact && <button className="outline-btn small" onClick={runResearch} disabled={researchLoading}><Globe size={14} /> {researchLoading ? 'Researching' : 'Deep research'}</button>}
                   {!selected.doNotContact && <button className="primary-btn small" onClick={() => document.getElementById('outreach-box')?.scrollIntoView({ behavior: 'smooth' })}><Send size={14} /> Draft outreach</button>}
                 </div>
               </div>
